@@ -1,0 +1,15 @@
+{
+  "features": [
+    {
+      "attributes": {
+        "brgy_name": "CAN-ABAY",
+        "brgy_code": "086001020",
+        "city_name": "Basey",
+        "city_code": "086001000",
+        "prov_name": "Samar",
+        "prov_code": "086000000",
+        "psgc_10d": "0806001020"
+      }
+    }
+  ]
+}

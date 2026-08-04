@@ -1,0 +1,323 @@
+{
+  "schema_version": "1.0",
+  "generated_on": "2026-07-23",
+  "registry_notice": "Service URLs were supplied as project candidates, not extracted from the attached boundary GeoJSON. Runtime metadata validation remains mandatory.",
+  "source_manifest_audit": {
+    "file_name": "basey-barangay-boundary-final.json",
+    "supplied_path": "C:\\Users\\Austin Jeru\\Downloads\\basey-barangay-boundary-final.json",
+    "sha256": "027b6dbaacdee9fd83e1ce680e2015916ecd44d1ede2440571a86358d0b5a581",
+    "media_type": "application/geo+json",
+    "root_type": "FeatureCollection",
+    "feature_count": 58,
+    "geometry_types": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "property_fields": [
+      "AREA",
+      "BARANGAY",
+      "BRGY_INDEX",
+      "IN_POB",
+      "NO.",
+      "OUT_POB",
+      "POB",
+      "Population",
+      "color_id",
+      "fid",
+      "id",
+      "layer",
+      "path"
+    ],
+    "contains_service_urls": false,
+    "declared_crs": null,
+    "coordinate_observation": "Coordinates are projected-looking (for example x near 499882), not RFC 7946 longitude/latitude. Their range and Basey/Samar area strongly suggest PRS92 / Philippines zone 5 (EPSG:3125), but the file itself does not declare this.",
+    "likely_crs": "EPSG:3125",
+    "likely_crs_status": "inferred_from_coordinate_range_and_area_of_use_pending_authority_confirmation",
+    "epsg_3125_sample_transform": {
+      "source_coordinate_observation": "first inspected projected coordinate",
+      "longitude": 125.068795687,
+      "latitude": 11.27974205
+    },
+    "epsg_3125_reprojected_bbox_wgs84": [
+      124.9765745,
+      11.2077799,
+      125.3065567,
+      11.5752297
+    ],
+    "geometry_validation": {
+      "engine": "Shapely",
+      "valid_features": 58,
+      "invalid_features": 0
+    },
+    "name_completeness": {
+      "named_features": 52,
+      "blank_name_features": 6,
+      "live_psa_named_feature_reference": 51
+    },
+    "spatial_comparison_to_live_psa_municipal": {
+      "jaccard_percent": 87.68,
+      "psa_area_inside_local_percent": 98.57,
+      "local_area_inside_psa_percent": 88.81,
+      "interpretation": "The overlap supports geographic plausibility only; it does not establish authority, CRS, currency, or legal-boundary equivalence."
+    },
+    "provenance_status": "supplied_reference_unverified",
+    "spatial_readiness": "likely_epsg_3125_pending_crs_and_authority_confirmation",
+    "operational_use": false,
+    "agency": null,
+    "required_notice": "The file contains no issuing-agency, license, date, CRS, or authoritative-status declaration. Do not call it official until those facts are documented."
+  },
+  "settings": {
+    "allowed_hosts": [
+      "ulap-hazards.georisk.gov.ph",
+      "ulap-nga.georisk.gov.ph"
+    ],
+    "allowed_schemes": [
+      "https"
+    ],
+    "token_environment_variable": "ULAP_TOKEN",
+    "request_timeout_environment_variable": "ULAP_REQUEST_TIMEOUT_SECONDS",
+    "max_retries_environment_variable": "ULAP_MAX_RETRIES",
+    "metadata_cache_environment_variable": "ULAP_METADATA_CACHE_SECONDS",
+    "query_cache_environment_variable": "ULAP_QUERY_CACHE_SECONDS",
+    "live_validation_environment_variable": "ULAP_LIVE_VALIDATION",
+    "hazards_base_environment_variable": "ULAP_HAZARDS_BASE_URL",
+    "nga_base_environment_variable": "ULAP_NGA_BASE_URL",
+    "default_request_timeout_seconds": 15,
+    "default_max_retries": 2,
+    "default_metadata_cache_seconds": 86400,
+    "default_query_cache_seconds": 3600
+  },
+  "services": [
+    {
+      "key": "flood",
+      "dataset_type": "hazard",
+      "required": true,
+      "configured": true,
+      "agency": "Mines and Geosciences Bureau",
+      "attribution": "Mines and Geosciences Bureau through the GeoRisk Philippines ULAP service.",
+      "base_environment_variable": "ULAP_HAZARDS_BASE_URL",
+      "default_base_url": "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services",
+      "relative_service_path": "MGBPublic/Flood/MapServer",
+      "service_url": "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/Flood/MapServer",
+      "layer_url": "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/Flood/MapServer/0",
+      "layer_id": 0,
+      "expected_layer_name": "Flood",
+      "expected_geometry_type": "esriGeometryPolygon",
+      "classification_field": "fscode",
+      "expected_spatial_reference": 4326,
+      "expected_domain": {
+        "01": "Low Susceptibility",
+        "02": "Moderate Susceptibility",
+        "03": "High Susceptibility",
+        "04": "Very High Susceptibility"
+      },
+      "preserve_fields": [
+        "fscode",
+        "gthcode",
+        "created_date",
+        "last_edited_date",
+        "orig_fid",
+        "globalid"
+      ],
+      "required_capabilities": [
+        "Query"
+      ],
+      "verification": {
+        "status": "verified",
+        "verified_on": "2026-07-23",
+        "method": "Live ArcGIS layer metadata request using f=pjson",
+        "current_version": 11.0,
+        "geometry_type": "esriGeometryPolygon",
+        "spatial_reference": 4326,
+        "max_record_count": 2000,
+        "classification_field_found": true,
+        "domain_matches_expected": true,
+        "copyright_text": "Source: Mines and Geosciences Bureau as the Data Source as of July, 2018."
+      }
+    },
+    {
+      "key": "liquefaction",
+      "dataset_type": "hazard",
+      "required": true,
+      "configured": true,
+      "agency": "Philippine Institute of Volcanology and Seismology",
+      "attribution": "Philippine Institute of Volcanology and Seismology through the GeoRisk Philippines ULAP service.",
+      "base_environment_variable": "ULAP_HAZARDS_BASE_URL",
+      "default_base_url": "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services",
+      "relative_service_path": "PHIVOLCSPublic/Liquefaction/MapServer",
+      "service_url": "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Liquefaction/MapServer",
+      "layer_url": "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/PHIVOLCSPublic/Liquefaction/MapServer/0",
+      "layer_id": 0,
+      "expected_layer_name": "Liquefaction",
+      "expected_geometry_type": "esriGeometryPolygon",
+      "classification_field": "lccode",
+      "expected_spatial_reference": 4326,
+      "expected_domain": {
+        "01": "Generally Susceptible",
+        "02": "Low Potential",
+        "03": "Moderate Potential",
+        "04": "High Potential",
+        "05": "Least Susceptible",
+        "06": "Moderately Susceptible",
+        "07": "Highly Susceptible"
+      },
+      "preserve_fields": [
+        "lccode",
+        "liqcode",
+        "mappers",
+        "project",
+        "province",
+        "otherinfo",
+        "datemapped",
+        "publishdate",
+        "globalid",
+        "createdate",
+        "modifydate"
+      ],
+      "required_capabilities": [
+        "Query"
+      ],
+      "verification": {
+        "status": "verified",
+        "verified_on": "2026-07-23",
+        "method": "Live ArcGIS layer metadata request using f=pjson",
+        "current_version": 11.0,
+        "geometry_type": "esriGeometryPolygon",
+        "spatial_reference": 4326,
+        "max_record_count": 2000,
+        "classification_field_found": true,
+        "domain_matches_expected": true,
+        "copyright_text": "Acknowledge Philippine Institute of Volcanology and Seismology (As of July 2018)."
+      }
+    },
+    {
+      "key": "ground_shaking",
+      "dataset_type": "hazard",
+      "required": true,
+      "configured": false,
+      "agency": "Philippine Institute of Volcanology and Seismology",
+      "attribution": null,
+      "base_environment_variable": "ULAP_HAZARDS_BASE_URL",
+      "default_base_url": "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services",
+      "relative_service_path": null,
+      "service_url": null,
+      "layer_url": null,
+      "layer_id": null,
+      "expected_layer_name": null,
+      "expected_geometry_type": null,
+      "classification_field": null,
+      "expected_spatial_reference": null,
+      "expected_domain": {},
+      "preserve_fields": [],
+      "required_capabilities": [
+        "Query"
+      ],
+      "verification": {
+        "status": "unavailable",
+        "verified_endpoint": false,
+        "verification_status": "unverified",
+        "verified_on": "2026-07-23",
+        "method": "Supplied file and candidate list audit",
+        "reason": "No ground-shaking, MMI, PEIS, PGA, PGV, or seismic-intensity service URL was supplied or verified. Active-fault and liquefaction layers are not substitutes."
+      }
+    },
+    {
+      "key": "municipal_boundary",
+      "dataset_type": "boundary",
+      "required": true,
+      "configured": true,
+      "agency": "Philippine Statistics Authority",
+      "attribution": "Philippine Statistics Authority through the GeoRisk Philippines ULAP service.",
+      "base_environment_variable": "ULAP_NGA_BASE_URL",
+      "default_base_url": "https://ulap-nga.georisk.gov.ph/arcgis/rest/services",
+      "relative_service_path": "PSA/Municipal/MapServer",
+      "service_url": "https://ulap-nga.georisk.gov.ph/arcgis/rest/services/PSA/Municipal/MapServer",
+      "layer_url": "https://ulap-nga.georisk.gov.ph/arcgis/rest/services/PSA/Municipal/MapServer/0",
+      "layer_id": 0,
+      "expected_layer_name": "Municipal Boundary",
+      "expected_geometry_type": "esriGeometryPolygon",
+      "classification_field": null,
+      "expected_spatial_reference": 4326,
+      "expected_domain": {},
+      "preserve_fields": [
+        "city_name",
+        "city_code",
+        "prov_name",
+        "prov_code",
+        "psgc_10d",
+        "reg_name",
+        "reg_code"
+      ],
+      "identity_fields": {
+        "municipality": "city_name",
+        "municipality_code": "city_code",
+        "province": "prov_name",
+        "province_code": "prov_code",
+        "psgc": "psgc_10d"
+      },
+      "required_capabilities": [
+        "Query"
+      ],
+      "verification": {
+        "status": "verified",
+        "verified_on": "2026-07-23",
+        "method": "Live ArcGIS layer metadata request using f=pjson",
+        "current_version": 11.0,
+        "geometry_type": "esriGeometryPolygon",
+        "spatial_reference": 4326,
+        "max_record_count": 20000
+      }
+    },
+    {
+      "key": "barangay_boundary",
+      "dataset_type": "boundary",
+      "required": true,
+      "configured": true,
+      "agency": "Philippine Statistics Authority",
+      "attribution": "Philippine Statistics Authority through the GeoRisk Philippines ULAP service.",
+      "base_environment_variable": "ULAP_NGA_BASE_URL",
+      "default_base_url": "https://ulap-nga.georisk.gov.ph/arcgis/rest/services",
+      "relative_service_path": "PSA/BarangayPopMF/MapServer",
+      "service_url": "https://ulap-nga.georisk.gov.ph/arcgis/rest/services/PSA/BarangayPopMF/MapServer",
+      "layer_url": "https://ulap-nga.georisk.gov.ph/arcgis/rest/services/PSA/BarangayPopMF/MapServer/0",
+      "layer_id": 0,
+      "expected_layer_name": "Barangay Boundary",
+      "expected_geometry_type": "esriGeometryPolygon",
+      "classification_field": null,
+      "expected_spatial_reference": 4326,
+      "expected_domain": {},
+      "preserve_fields": [
+        "brgy_name",
+        "brgy_code",
+        "city_name",
+        "city_code",
+        "prov_name",
+        "prov_code",
+        "psgc_10d",
+        "reg_name",
+        "reg_code"
+      ],
+      "identity_fields": {
+        "barangay": "brgy_name",
+        "barangay_code": "brgy_code",
+        "municipality": "city_name",
+        "municipality_code": "city_code",
+        "province": "prov_name",
+        "province_code": "prov_code",
+        "psgc": "psgc_10d"
+      },
+      "required_capabilities": [
+        "Query"
+      ],
+      "verification": {
+        "status": "verified",
+        "verified_on": "2026-07-23",
+        "method": "Live ArcGIS REST layer-directory metadata response",
+        "geometry_type": "esriGeometryPolygon",
+        "spatial_reference": 4326,
+        "max_record_count": 50000,
+        "note": "Runtime validator still requests f=pjson before use."
+      }
+    }
+  ]
+}

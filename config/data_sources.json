@@ -1,0 +1,92 @@
+{
+  "schema_version": "2.0",
+  "stored_crs": "EPSG:4326",
+  "required_disclaimer": "This output is a preliminary decision-support screening result based on the availability and classifications of the cited source datasets. It is not an official hazard certification, zoning approval, building-safety rating, structural assessment, engineering recommendation, or disaster forecast.",
+  "supplied_boundary_source": {
+    "file_name": "basey-barangay-boundary-final.json",
+    "sha256": "027b6dbaacdee9fd83e1ce680e2015916ecd44d1ede2440571a86358d0b5a581",
+    "feature_count": 58,
+    "named_feature_count": 52,
+    "blank_name_feature_count": 6,
+    "geometry_validation": {
+      "valid_feature_count": 58,
+      "invalid_feature_count": 0,
+      "validator": "Shapely 2.x after EPSG:3125 test reprojection",
+      "transformed_wgs84_bbox": [
+        124.9765745271,
+        11.2077799114,
+        125.3065566711,
+        11.5752296825
+      ]
+    },
+    "declared_crs": null,
+    "coordinate_reference_status": "pending_confirmation",
+    "likely_crs": "EPSG:3125",
+    "likely_crs_basis": "Coordinate ranges are consistent with PRS92 / Philippines zone 5 over Samar (central meridian 125 degrees and 500000-metre false easting), but the file does not declare a CRS.",
+    "authorization_status": "user_supplied_provenance_not_confirmed",
+    "operational_use": false,
+    "live_psa_comparison": {
+      "psa_barangay_count": 51,
+      "intersection_over_supplied_boundary": 0.88805657,
+      "intersection_over_psa_boundary": 0.98570988,
+      "jaccard_overlap": 0.87676869
+    },
+    "notice": "Do not load this file as WGS84 or label it official until the issuing LGU, CRS, currency, six unnamed polygons, barangay-name differences, and boundary differences have been confirmed."
+  },
+  "production_data_requirements": [
+    {
+      "target": "municipal-boundary",
+      "required": true,
+      "status": "verified_live_service",
+      "source": "PSA/Municipal/MapServer/0 through GeoRisk Philippines ULAP",
+      "verified_at": "2026-07-23",
+      "notice": "The live service returned one Basey, Samar record. The supplied local boundary file contains barangays only and has unresolved CRS/provenance."
+    },
+    {
+      "target": "barangays",
+      "required": true,
+      "status": "verified_live_service",
+      "source": "PSA/BarangayPopMF/MapServer/0 through GeoRisk Philippines ULAP",
+      "verified_at": "2026-07-23",
+      "notice": "The live filter returned 51 Basey barangay records. The supplied file has 58 features, including six with blank names, and is retained only as a pending-verification source reference."
+    },
+    {
+      "target": "hazard",
+      "hazard_type": "flood",
+      "required": true,
+      "status": "verified_live_service",
+      "source": "MGBPublic/Flood/MapServer/0 through GeoRisk Philippines ULAP",
+      "classification_field": "fscode",
+      "verified_at": "2026-07-23"
+    },
+    {
+      "target": "hazard",
+      "hazard_type": "liquefaction",
+      "required": true,
+      "status": "verified_live_service",
+      "source": "PHIVOLCSPublic/Liquefaction/MapServer/0 through GeoRisk Philippines ULAP",
+      "classification_field": "lccode",
+      "verified_at": "2026-07-23"
+    },
+    {
+      "target": "hazard",
+      "hazard_type": "ground_shaking",
+      "required": true,
+      "status": "not_configured",
+      "notice": "No ground-shaking endpoint occurs in the supplied JSON, and the verified public PHIVOLCS ULAP folder listed only ActiveFault and Liquefaction. A complete score is blocked."
+    },
+    {
+      "target": "incidents",
+      "required": true,
+      "status": "not_configured",
+      "notice": "Load only authorized historical incident records with dates, locations, provenance, and completeness limitations. Synthetic demonstration records are not operational data."
+    },
+    {
+      "target": "clup-references",
+      "required": true,
+      "status": "not_configured",
+      "notice": "Load relevant references from the adopted CLUP with edition, section, authority, and spatial limitations. Synthetic demonstration references are not operational data."
+    }
+  ],
+  "datasets": []
+}

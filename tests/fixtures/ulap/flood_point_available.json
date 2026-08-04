@@ -1,0 +1,18 @@
+{
+  "objectIdFieldName": "objectid",
+  "fields": [
+    {"name": "objectid", "type": "esriFieldTypeOID"},
+    {"name": "fscode", "type": "esriFieldTypeString"},
+    {"name": "gthcode", "type": "esriFieldTypeString"}
+  ],
+  "features": [
+    {
+      "attributes": {
+        "objectid": 102,
+        "fscode": "03",
+        "gthcode": "FLOOD-DEMO-CODE",
+        "last_edited_date": 1704067200000
+      }
+    }
+  ]
+}

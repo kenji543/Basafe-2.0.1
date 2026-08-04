@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Generated runtime state and import diagnostics
+data/*.db
+data/*.db-*
+data/*.sqlite*
+*.import-errors.jsonl
+*.log
+
+# Generated reports, if file-backed report storage is enabled later
+reports/
+
+# Editor and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

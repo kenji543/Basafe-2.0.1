@@ -1,0 +1,6 @@
+{
+  "currentVersion": 11.0,
+  "serviceDescription": "Recorded sanitized test fixture",
+  "capabilities": "Map,Query,Data",
+  "layers": [{"id": 0, "name": "Fixture layer"}]
+}

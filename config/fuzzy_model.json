@@ -1,0 +1,401 @@
+{
+  "model_version": "0.4.0-demo",
+  "model_name": "GeoSafe-FIS multi-hazard vulnerability screening model",
+  "status": "DEMONSTRATION MODEL — NOT YET VALIDATED FOR OFFICIAL PLANNING USE",
+  "effective_date": "2026-07-23",
+  "validation_notes": [
+    "The variables, membership breakpoints, rule weights, and category thresholds are demonstration assumptions.",
+    "Qualified specialists in flood hazards, engineering geology, seismology, disaster-risk reduction, and land-use planning must review and validate this configuration before operational use.",
+    "Historical incidents and CLUP references are displayed as decision context; they are not numerical fuzzy inputs in this model version.",
+    "An unavailable required input produces an incomplete assessment. It is never converted to zero or interpreted as low vulnerability.",
+    "ULAP classification-to-index transformations below are transparent capstone assumptions and require validation by qualified MGB, PHIVOLCS, DRRM, geotechnical, and planning specialists.",
+    "Official ULAP codes and labels remain unchanged in the source result; the separate normalized index is used only by the GeoSafe-FIS fuzzy model."
+  ],
+  "inputs": [
+    {
+      "id": "flood",
+      "name": "Flood susceptibility",
+      "description": "Normalized screening representation of the available flood classification at the selected point.",
+      "unit": "normalized index",
+      "universe": [0, 100],
+      "required": true,
+      "normalization": {
+        "source_dataset": "MGBPublic/Flood/MapServer/0",
+        "source_field": "fscode",
+        "source_domain": "Live ArcGIS coded-value domain",
+        "model_input_domain": [0, 100],
+        "method": "Exact code lookup from the verified live domain; the official label is preserved separately.",
+        "classification_mappings": {
+          "01": {
+            "official_label": "Low Susceptibility",
+            "normalized_value": 20
+          },
+          "02": {
+            "official_label": "Moderate Susceptibility",
+            "normalized_value": 50
+          },
+          "03": {
+            "official_label": "High Susceptibility",
+            "normalized_value": 75
+          },
+          "04": {
+            "official_label": "Very High Susceptibility",
+            "normalized_value": 95
+          }
+        },
+        "missing_value_policy": "An absent feature, missing field, changed schema, or unknown code remains missing and makes the assessment incomplete.",
+        "validation_requirement": "DEMONSTRATION TRANSFORMATION — the four model index values require review and approval by qualified domain experts before official planning use."
+      },
+      "memberships": [
+        {
+          "term": "low",
+          "type": "trapezoidal",
+          "parameters": [0, 0, 25, 45]
+        },
+        {
+          "term": "moderate",
+          "type": "triangular",
+          "parameters": [25, 50, 75]
+        },
+        {
+          "term": "high",
+          "type": "trapezoidal",
+          "parameters": [55, 75, 100, 100]
+        }
+      ]
+    },
+    {
+      "id": "liquefaction",
+      "name": "Liquefaction susceptibility",
+      "description": "Normalized screening representation of the available liquefaction classification at the selected point.",
+      "unit": "normalized index",
+      "universe": [0, 100],
+      "required": true,
+      "normalization": {
+        "source_dataset": "PHIVOLCSPublic/Liquefaction/MapServer/0",
+        "source_field": "lccode",
+        "source_domain": "Live ArcGIS coded-value domain containing two distinct classification families",
+        "model_input_domain": [0, 100],
+        "method": "Exact code lookup configured independently for every official category; no ordinal sequence is inferred from the code numbers.",
+        "classification_mappings": {
+          "01": {
+            "official_label": "Generally Susceptible",
+            "normalized_value": 50,
+            "note": "Broad legacy/general category; deliberately not treated as Low Potential."
+          },
+          "02": {
+            "official_label": "Low Potential",
+            "normalized_value": 25
+          },
+          "03": {
+            "official_label": "Moderate Potential",
+            "normalized_value": 50
+          },
+          "04": {
+            "official_label": "High Potential",
+            "normalized_value": 80
+          },
+          "05": {
+            "official_label": "Least Susceptible",
+            "normalized_value": 15
+          },
+          "06": {
+            "official_label": "Moderately Susceptible",
+            "normalized_value": 55
+          },
+          "07": {
+            "official_label": "Highly Susceptible",
+            "normalized_value": 90
+          }
+        },
+        "missing_value_policy": "An absent feature, missing field, changed schema, or unknown code remains missing and makes the assessment incomplete.",
+        "validation_requirement": "DEMONSTRATION TRANSFORMATION — these non-equivalent source categories and all seven model index values require PHIVOLCS/domain-expert validation before official planning use."
+      },
+      "memberships": [
+        {
+          "term": "low",
+          "type": "trapezoidal",
+          "parameters": [0, 0, 20, 45]
+        },
+        {
+          "term": "moderate",
+          "type": "triangular",
+          "parameters": [25, 50, 75]
+        },
+        {
+          "term": "high",
+          "type": "trapezoidal",
+          "parameters": [55, 80, 100, 100]
+        }
+      ]
+    },
+    {
+      "id": "ground_shaking",
+      "name": "Ground-shaking intensity",
+      "description": "Normalized screening representation of the available ground-shaking classification at the selected point.",
+      "unit": "normalized index",
+      "universe": [0, 100],
+      "required": true,
+      "normalization": {
+        "source_dataset": null,
+        "source_field": null,
+        "source_domain": null,
+        "model_input_domain": [0, 100],
+        "method": "No transformation is configured until an authorized ground-shaking layer, field, unit, classification system, and domain are verified.",
+        "classification_mappings": {},
+        "missing_value_policy": "Ground shaking remains unavailable; do not substitute Active Fault, distance to fault, epicenters, liquefaction, or an invented intensity.",
+        "validation_requirement": "A verified ground-shaking endpoint and a domain-expert-approved source-to-model transformation are required before a three-hazard score can be calculated."
+      },
+      "memberships": [
+        {
+          "term": "low",
+          "type": "trapezoidal",
+          "parameters": [0, 0, 25, 45]
+        },
+        {
+          "term": "moderate",
+          "type": "triangular",
+          "parameters": [25, 50, 75]
+        },
+        {
+          "term": "high",
+          "type": "trapezoidal",
+          "parameters": [55, 75, 100, 100]
+        }
+      ]
+    }
+  ],
+  "output": {
+    "id": "vulnerability",
+    "name": "Multi-hazard vulnerability screening score",
+    "universe": [1, 100],
+    "memberships": [
+      {
+        "term": "low",
+        "type": "trapezoidal",
+        "parameters": [1, 1, 18, 35]
+      },
+      {
+        "term": "moderate",
+        "type": "triangular",
+        "parameters": [20, 43, 60]
+      },
+      {
+        "term": "high",
+        "type": "triangular",
+        "parameters": [45, 67, 82]
+      },
+      {
+        "term": "very_high",
+        "type": "trapezoidal",
+        "parameters": [70, 86, 100, 100]
+      }
+    ],
+    "category_thresholds": [
+      {
+        "category": "Low",
+        "minimum": 1,
+        "maximum": 25
+      },
+      {
+        "category": "Moderate",
+        "minimum": 26,
+        "maximum": 50
+      },
+      {
+        "category": "High",
+        "minimum": 51,
+        "maximum": 75
+      },
+      {
+        "category": "Very High",
+        "minimum": 76,
+        "maximum": 100
+      }
+    ]
+  },
+  "rules": [
+    {
+      "id": "R01",
+      "statement": "IF flood is high AND liquefaction is high AND ground shaking is high THEN vulnerability is very high",
+      "operator": "all",
+      "conditions": [
+        ["flood", "high"],
+        ["liquefaction", "high"],
+        ["ground_shaking", "high"]
+      ],
+      "consequent": "very_high",
+      "weight": 1.0,
+      "rationale": "Concurrent strong evidence across all three hazards warrants the strongest screening output."
+    },
+    {
+      "id": "R02",
+      "statement": "IF flood is high AND liquefaction is high THEN vulnerability is very high",
+      "operator": "all",
+      "conditions": [
+        ["flood", "high"],
+        ["liquefaction", "high"]
+      ],
+      "consequent": "very_high",
+      "weight": 0.95,
+      "rationale": "Two co-located high hazard classifications materially increase planning concern."
+    },
+    {
+      "id": "R03",
+      "statement": "IF flood is high AND ground shaking is high THEN vulnerability is very high",
+      "operator": "all",
+      "conditions": [
+        ["flood", "high"],
+        ["ground_shaking", "high"]
+      ],
+      "consequent": "very_high",
+      "weight": 0.95,
+      "rationale": "Two co-located high hazard classifications materially increase planning concern."
+    },
+    {
+      "id": "R04",
+      "statement": "IF liquefaction is high AND ground shaking is high THEN vulnerability is very high",
+      "operator": "all",
+      "conditions": [
+        ["liquefaction", "high"],
+        ["ground_shaking", "high"]
+      ],
+      "consequent": "very_high",
+      "weight": 0.95,
+      "rationale": "Strong shaking combined with high liquefaction susceptibility is a critical coupled signal."
+    },
+    {
+      "id": "R05",
+      "statement": "IF any required hazard is high THEN vulnerability is high",
+      "operator": "any",
+      "conditions": [
+        ["flood", "high"],
+        ["liquefaction", "high"],
+        ["ground_shaking", "high"]
+      ],
+      "consequent": "high",
+      "weight": 0.85,
+      "rationale": "A single high hazard remains planning-significant even when the other inputs are lower."
+    },
+    {
+      "id": "R06",
+      "statement": "IF flood is moderate AND liquefaction is moderate AND ground shaking is moderate THEN vulnerability is moderate",
+      "operator": "all",
+      "conditions": [
+        ["flood", "moderate"],
+        ["liquefaction", "moderate"],
+        ["ground_shaking", "moderate"]
+      ],
+      "consequent": "moderate",
+      "weight": 1.0,
+      "rationale": "Consistent mid-range evidence supports a moderate screening result."
+    },
+    {
+      "id": "R07",
+      "statement": "IF flood is moderate AND liquefaction is moderate THEN vulnerability is moderate",
+      "operator": "all",
+      "conditions": [
+        ["flood", "moderate"],
+        ["liquefaction", "moderate"]
+      ],
+      "consequent": "moderate",
+      "weight": 0.85,
+      "rationale": "Two moderate classifications reinforce a moderate multi-hazard signal."
+    },
+    {
+      "id": "R08",
+      "statement": "IF flood is moderate AND ground shaking is moderate THEN vulnerability is moderate",
+      "operator": "all",
+      "conditions": [
+        ["flood", "moderate"],
+        ["ground_shaking", "moderate"]
+      ],
+      "consequent": "moderate",
+      "weight": 0.85,
+      "rationale": "Two moderate classifications reinforce a moderate multi-hazard signal."
+    },
+    {
+      "id": "R09",
+      "statement": "IF liquefaction is moderate AND ground shaking is moderate THEN vulnerability is moderate",
+      "operator": "all",
+      "conditions": [
+        ["liquefaction", "moderate"],
+        ["ground_shaking", "moderate"]
+      ],
+      "consequent": "moderate",
+      "weight": 0.85,
+      "rationale": "Two moderate classifications reinforce a moderate multi-hazard signal."
+    },
+    {
+      "id": "R10",
+      "statement": "IF any required hazard is moderate THEN vulnerability is moderate",
+      "operator": "any",
+      "conditions": [
+        ["flood", "moderate"],
+        ["liquefaction", "moderate"],
+        ["ground_shaking", "moderate"]
+      ],
+      "consequent": "moderate",
+      "weight": 0.7,
+      "rationale": "A moderate hazard should remain visible in the combined screening output."
+    },
+    {
+      "id": "R11",
+      "statement": "IF flood is low AND liquefaction is low AND ground shaking is low THEN vulnerability is low",
+      "operator": "all",
+      "conditions": [
+        ["flood", "low"],
+        ["liquefaction", "low"],
+        ["ground_shaking", "low"]
+      ],
+      "consequent": "low",
+      "weight": 1.0,
+      "rationale": "Only available evidence consistently classified as low strongly supports the low output."
+    },
+    {
+      "id": "R12",
+      "statement": "IF any required hazard is low THEN vulnerability is low",
+      "operator": "any",
+      "conditions": [
+        ["flood", "low"],
+        ["liquefaction", "low"],
+        ["ground_shaking", "low"]
+      ],
+      "consequent": "low",
+      "weight": 0.4,
+      "rationale": "Low evidence contributes cautiously without overriding stronger hazard evidence."
+    }
+  ],
+  "inference": {
+    "type": "Mamdani",
+    "and_operator": "minimum",
+    "or_operator": "maximum",
+    "implication": "minimum",
+    "aggregation": "maximum",
+    "defuzzification": "centroid",
+    "sampling_interval": 1
+  },
+  "recommendation_templates": {
+    "Low": [
+      "Maintain current risk-reduction measures and verify site-specific conditions before committing land-use or capital decisions.",
+      "Keep hazard and incident records current; a low screening result does not mean no hazard."
+    ],
+    "Moderate": [
+      "Include the location in more detailed planning review and compare the result with current official hazard maps.",
+      "Consider site inspection and appropriate professional advice before approving sensitive or high-occupancy uses."
+    ],
+    "High": [
+      "Prioritize detailed site-specific hazard assessment and risk-reduction options before major planning or investment decisions.",
+      "Review applicable evacuation, drainage, structural, and land-use controls with qualified municipal and technical personnel."
+    ],
+    "Very High": [
+      "Treat the location as a priority for detailed multi-hazard investigation and cautious land-use review.",
+      "Avoid using this screening result alone to approve development; obtain current official assessments and qualified technical advice."
+    ],
+    "Incomplete": [
+      "Do not infer low vulnerability. Obtain the missing required hazard information and run the assessment again.",
+      "Use available incident and CLUP context only as supporting information, not as a substitute for missing hazard inputs."
+    ]
+  },
+  "disclaimer": "This output is a preliminary decision-support screening result based on the availability and classifications of the cited source datasets. It is not an official hazard certification, zoning approval, building-safety rating, structural assessment, engineering recommendation, or disaster forecast."
+}

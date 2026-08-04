@@ -1,0 +1,51 @@
+{
+  "currentVersion": 11.0,
+  "id": 0,
+  "name": "Liquefaction",
+  "type": "Feature Layer",
+  "geometryType": "esriGeometryPolygon",
+  "sourceSpatialReference": {"wkid": 4326, "latestWkid": 4326},
+  "copyrightText": "Acknowledge PHIVOLCS (As of July 2018).",
+  "capabilities": "Map,Query,Data",
+  "supportedQueryFormats": "JSON, geoJSON, PBF",
+  "maxRecordCount": 2000,
+  "drawingInfo": {
+    "renderer": {
+      "type": "uniqueValue",
+      "field1": "lccode",
+      "uniqueValueInfos": [
+        {"value": "01", "label": "Generally Susceptible"},
+        {"value": "02", "label": "Low Potential"},
+        {"value": "03", "label": "Moderate Potential"},
+        {"value": "04", "label": "High Potential"},
+        {"value": "05", "label": "Least Susceptible"},
+        {"value": "06", "label": "Moderately Susceptible"},
+        {"value": "07", "label": "Highly Susceptible"}
+      ]
+    }
+  },
+  "fields": [
+    {"name": "objectid", "type": "esriFieldTypeOID", "domain": null},
+    {
+      "name": "lccode",
+      "type": "esriFieldTypeString",
+      "domain": {
+        "type": "codedValue",
+        "codedValues": [
+          {"code": "01", "name": "Generally Susceptible"},
+          {"code": "02", "name": "Low Potential"},
+          {"code": "03", "name": "Moderate Potential"},
+          {"code": "04", "name": "High Potential"},
+          {"code": "05", "name": "Least Susceptible"},
+          {"code": "06", "name": "Moderately Susceptible"},
+          {"code": "07", "name": "Highly Susceptible"}
+        ]
+      }
+    },
+    {"name": "liqcode", "type": "esriFieldTypeString", "domain": null},
+    {"name": "project", "type": "esriFieldTypeString", "domain": null},
+    {"name": "province", "type": "esriFieldTypeString", "domain": null},
+    {"name": "datemapped", "type": "esriFieldTypeInteger", "domain": null},
+    {"name": "publishdate", "type": "esriFieldTypeInteger", "domain": null}
+  ]
+}

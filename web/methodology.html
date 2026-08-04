@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="GeoSafe-FIS fuzzy methodology, data sources, and limitations.">
+  <meta name="theme-color" content="#123c36">
+  <title>Methodology &amp; limitations | GeoSafe-FIS</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script defer src="./methodology.js"></script>
+</head>
+<body data-api-base="/api/v1" class="methodology-page">
+  <a class="skip-link" href="#main-content">Skip to methodology</a>
+
+  <header class="app-header">
+    <a class="brand" href="./index.html" aria-label="GeoSafe-FIS assessment home">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 40 40" role="img">
+          <path d="M20 3.5c-7 0-12.7 5.5-12.7 12.4 0 9.2 12.7 20.4 12.7 20.4s12.7-11.2 12.7-20.4C32.7 9 27 3.5 20 3.5Z"/>
+          <path class="brand-wave" d="M11.7 17.3c2.2 0 2.2-1.8 4.4-1.8s2.2 1.8 4.4 1.8 2.2-1.8 4.4-1.8 2.2 1.8 4.4 1.8"/>
+          <circle class="brand-dot" cx="20" cy="11.5" r="2.2"/>
+        </svg>
+      </span>
+      <span>
+        <strong>GeoSafe-FIS</strong>
+        <small>Basey vulnerability screening</small>
+      </span>
+    </a>
+    <nav class="primary-nav" aria-label="Primary navigation">
+      <a href="./index.html">Assessment</a>
+      <a class="active" href="./methodology.html" aria-current="page">Methodology &amp; limitations</a>
+    </nav>
+    <div id="method-status" class="system-status is-checking" role="status" aria-live="polite">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span>Loading model record</span>
+    </div>
+  </header>
+
+  <main id="main-content" class="document-shell">
+    <aside class="document-nav" aria-label="On this page">
+      <p class="eyebrow">On this page</p>
+      <a href="#overview">Overview</a>
+      <a href="#model">Fuzzy model</a>
+      <a href="#rules">Rule base</a>
+      <a href="#sources">Data sources</a>
+      <a href="#quality">Data quality</a>
+      <a href="#limitations">Limitations &amp; disclaimer</a>
+      <a class="button primary" href="./index.html">Open assessment map</a>
+    </aside>
+
+    <article class="document-content">
+      <header class="document-hero" id="overview">
+        <p class="eyebrow">Transparent by design</p>
+        <h1>Methodology &amp; limitations</h1>
+        <p class="lede">GeoSafe-FIS retrieves available official hazard classifications through verified GeoRisk Philippines ULAP services, then keeps those source values separate from its explainable model transformations.</p>
+        <div class="model-meta">
+          <div><span>Model version</span><strong id="model-version">Not reported</strong></div>
+          <div><span>Defuzzification</span><strong id="defuzzification">Not reported</strong></div>
+          <div><span>Output range</span><strong>1–100</strong></div>
+          <div><span>Record loaded</span><strong id="model-loaded-at">Pending</strong></div>
+        </div>
+      </header>
+
+      <section class="document-section">
+        <div class="callout important">
+          <strong>Screening, not a site-specific determination</strong>
+          <p>The score supports early planning conversations. It does not replace detailed geotechnical, hydrologic, structural, land-use, or emergency-management studies.</p>
+        </div>
+        <h2>How an assessment is produced</h2>
+        <ol class="process-list">
+          <li><span>01</span><div><strong>Select and identify</strong><p>The point is checked against the configured Basey municipal and barangay sources, with provenance preserved.</p></div></li>
+          <li><span>02</span><div><strong>Retrieve live evidence</strong><p>The backend queries verified ULAP services and records the raw code, official label, status, layer, attribution, retrieval time, and cache state.</p></div></li>
+          <li><span>03</span><div><strong>Transform transparently</strong><p>A configured GeoSafe-FIS normalization converts an available official label into a separate internal model value and fuzzy memberships.</p></div></li>
+          <li><span>04</span><div><strong>Evaluate rules</strong><p>Configured rules are activated, weighted, aggregated, and preserved with their activation strengths.</p></div></li>
+          <li><span>05</span><div><strong>Explain the result</strong><p>A 1–100 score and descriptive category are presented with the evidence, rules, missing-data status, and cautious recommendations.</p></div></li>
+        </ol>
+      </section>
+
+      <section id="model" class="document-section">
+        <div class="section-kicker">Model specification</div>
+        <h2>Inputs and membership functions</h2>
+        <p>The deployed model configuration is version-controlled. The table is populated from the methodology API so the interface describes the model actually used by the assessment service.</p>
+        <div class="callout important">
+          <strong>Official classification ≠ model value</strong>
+          <p>The MGB or PHIVOLCS source code and label are displayed unchanged. Any 0–100 input value and membership degrees are GeoSafe-FIS transformations, not official agency numerical ratings.</p>
+        </div>
+        <div id="variables-content" class="api-document-content">
+          <div class="loading-block"><span class="spinner"></span>Loading input variables…</div>
+        </div>
+
+        <h2>Output categories</h2>
+        <div id="outputs-content" class="api-document-content">
+          <div class="loading-block"><span class="spinner"></span>Loading output thresholds…</div>
+        </div>
+      </section>
+
+      <section id="rules" class="document-section">
+        <div class="section-kicker">Explainability</div>
+        <h2>Documented fuzzy rules</h2>
+        <p>Every assessment preserves the activated statements and their strengths. A rule that does not activate should not be presented as contributing to the score.</p>
+        <div id="rules-content" class="api-document-content">
+          <div class="loading-block"><span class="spinner"></span>Loading rule base…</div>
+        </div>
+        <div id="validation-notes" class="callout caution">
+          <strong>Domain validation required</strong>
+          <p>Configured transformations, thresholds, and fuzzy rules must be reviewed and validated by qualified domain experts before operational planning use.</p>
+        </div>
+      </section>
+
+      <section id="sources" class="document-section">
+        <div class="section-kicker">Evidence register</div>
+        <h2>Live ULAP services and data sources</h2>
+        <p>Each source record identifies its agency, service and layer, verification status, classification field, URL, attribution, retrieval or data date, and known limitations. A zero-feature response is never treated as low or safe.</p>
+        <div id="ulap-method-status" class="callout important">
+          <strong>Checking live service health…</strong>
+          <p>GeoSafe-FIS validates configured ArcGIS service and layer metadata through its backend.</p>
+        </div>
+        <div id="sources-content" class="api-document-content">
+          <div class="loading-block"><span class="spinner"></span>Loading verified ULAP source register…</div>
+        </div>
+      </section>
+
+      <section id="quality" class="document-section">
+        <div class="section-kicker">Responsible interpretation</div>
+        <h2>Data availability and quality</h2>
+        <div class="principle-grid">
+          <article><span>01</span><h3>Missing stays missing</h3><p>A required unavailable hazard input makes an assessment incomplete; it is never converted to zero or low vulnerability.</p></article>
+          <article><span>02</span><h3>Provenance travels with results</h3><p>Provider, date, processing notes, availability, and quality notices remain visible in both the interface and report.</p></article>
+          <article><span>03</span><h3>Live or cached is explicit</h3><p>Every hazard value shows its source URL, retrieval time, cache source and expiry. Stale values are labelled and never silently reused.</p></article>
+        </div>
+      </section>
+
+      <section id="limitations" class="document-section limitations-section">
+        <div class="section-kicker">Required disclaimer</div>
+        <h2>Limitations and appropriate use</h2>
+        <ul class="limitation-list">
+          <li>Results depend on the spatial resolution, currency, completeness, and classification of the available datasets.</li>
+          <li>Boundary and hazard overlays may contain positional uncertainty and should not be interpreted as cadastral or parcel-level delineations.</li>
+          <li>A complete three-hazard score is blocked when flood, liquefaction, or a verified ground-shaking value is unavailable.</li>
+          <li>Historical incident records describe known records only; gaps may reflect limited reporting rather than absence of past events.</li>
+          <li>CLUP references are contextual planning information and must be verified against the currently adopted official plan and ordinances.</li>
+          <li>Fuzzy scores are relative screening outputs determined by the configured membership functions and rules, not probabilities or forecasts.</li>
+          <li>Recommendations are cautious planning prompts, not engineering designs, legal advice, evacuation instructions, or approval decisions.</li>
+        </ul>
+        <div class="disclaimer-box">
+          <h3>Disclaimer</h3>
+          <p>This output is a preliminary decision-support screening result based on the availability and classifications of the cited source datasets. It is not an official hazard certification, zoning approval, building-safety rating, structural assessment, engineering recommendation, or disaster forecast.</p>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <footer class="app-footer document-footer">
+    <p>GeoSafe-FIS · Explainable Web-GIS screening for Basey, Samar</p>
+    <a href="./index.html">Return to assessment</a>
+  </footer>
+</body>
+</html>

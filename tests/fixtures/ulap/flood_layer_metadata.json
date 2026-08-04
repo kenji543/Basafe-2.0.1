@@ -1,0 +1,30 @@
+{
+  "currentVersion": 11.0,
+  "id": 0,
+  "name": "Flood",
+  "type": "Feature Layer",
+  "geometryType": "esriGeometryPolygon",
+  "sourceSpatialReference": {"wkid": 4326, "latestWkid": 4326},
+  "copyrightText": "Source: Mines and Geosciences Bureau as of July 2018.",
+  "capabilities": "Map,Query,Data",
+  "supportedQueryFormats": "JSON, geoJSON, PBF",
+  "maxRecordCount": 2000,
+  "fields": [
+    {"name": "objectid", "type": "esriFieldTypeOID", "domain": null},
+    {
+      "name": "fscode",
+      "type": "esriFieldTypeString",
+      "domain": {
+        "type": "codedValue",
+        "codedValues": [
+          {"code": "01", "name": "Low Susceptibility"},
+          {"code": "02", "name": "Moderate Susceptibility"},
+          {"code": "03", "name": "High Susceptibility"},
+          {"code": "04", "name": "Very High Susceptibility"}
+        ]
+      }
+    },
+    {"name": "gthcode", "type": "esriFieldTypeString", "domain": null},
+    {"name": "last_edited_date", "type": "esriFieldTypeDate", "domain": null}
+  ]
+}
