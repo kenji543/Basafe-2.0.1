@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#073b4c">
+  <meta name="description" content="GeoSafe-FIS project information, data sources, limitations, and privacy guidance.">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/site.css?v=0.5.11">
+  <title>GeoSafe-FIS Information</title>
+  <script defer src="/info.js?v=0.5.11"></script>
+  <script defer src="/pwa.js?v=0.5.11"></script>
+</head>
+<body>
+  <a class="skip-link" href="#info-content">Skip to main content</a>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="site-brand" href="/" aria-label="GeoSafe-FIS home"><span class="logo-pin" aria-hidden="true"><i></i></span><span><strong>GeoSafe-FIS</strong><small>Basey, Samar</small></span></a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-navigation">Menu</button>
+      <nav id="site-navigation" class="site-nav" aria-label="Primary navigation"><a href="/">Home</a><a href="/map">Map</a><a href="/data-sources">Data Sources</a><a href="/methodology">Methodology</a><a href="/limitations">Limitations</a><a href="/about">About</a></nav>
+      <div class="header-actions"><button class="button button-quiet" type="button" data-install hidden>Install App</button><a class="button button-primary" href="/map">Assess a Location</a></div>
+    </div>
+  </header>
+  <div id="offline-banner" class="offline-banner" role="status" hidden>You are offline. Previously viewed information may be available, but current source status may require a connection.</div>
+  <main id="info-content" class="info-main section-shell" aria-live="polite">
+    <section class="info-hero"><p class="eyebrow" id="page-eyebrow">GeoSafe-FIS</p><h1 id="page-title">Project information</h1><p id="page-summary">Loading the requested information…</p></section>
+    <div id="page-sections" class="info-content"></div>
+  </main>
+  <footer class="site-footer"><div><a class="site-brand footer-brand" href="/"><span class="logo-pin" aria-hidden="true"><i></i></span><span><strong>GeoSafe-FIS</strong><small>Public preliminary screening</small></span></a></div><nav aria-label="Footer navigation"><a href="/privacy">Privacy</a><a href="/about">About</a><a href="/limitations">Limitations</a></nav><div class="footer-disclaimer"><strong>Important</strong><p>GeoSafe-FIS does not certify that a location is safe or unsafe and does not replace official or professional assessment.</p></div></footer>
+</body>
+</html>

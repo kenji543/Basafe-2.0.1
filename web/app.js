@@ -3,14 +3,48 @@
 
   const API_BASE = (document.body.dataset.apiBase || "/api/v1").replace(/\/$/, "");
   const BASEY_CENTER = [11.282, 125.069];
-  const BASEY_FALLBACK_BOUNDS = [[11.02, 124.88], [11.55, 125.35]];
+  const BASEY_FALLBACK_BOUNDS = [[11.2540, 124.9764], [11.5641, 125.3092]];
+  const BASEMAP_DEFINITIONS = {
+    streets: {
+      label: "Streets",
+      shortAttribution: "Basemap: OpenStreetMap",
+      url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      options: {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        crossOrigin: true
+      }
+    },
+    satellite: {
+      label: "Satellite",
+      shortAttribution: "Basemap: Esri World Imagery",
+      url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      options: {
+        maxZoom: 19,
+        maxNativeZoom: 18,
+        attribution: "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+        crossOrigin: true
+      }
+    },
+    terrain: {
+      label: "Terrain",
+      shortAttribution: "Basemap: Esri World Topographic Map",
+      url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+      options: {
+        maxZoom: 19,
+        attribution: "Tiles &copy; Esri &mdash; Esri and its contributors",
+        crossOrigin: true
+      }
+    }
+  };
   const HISTORY_KEY = "geosafe-fis.recent-assessments.v1";
+  const PRIVATE_ASSESSMENT_ID = /^[A-Za-z0-9_-]{20,128}$/;
   const REQUIRED_HAZARDS = [
     { key: "flood", label: "Flood", color: "#2876a8" },
     { key: "liquefaction", label: "Liquefaction", color: "#d9903d" },
     { key: "ground_shaking", label: "Ground shaking", color: "#b74b53" }
   ];
-  const DISCLAIMER = "This output is a preliminary decision-support screening result based on the availability and classifications of the cited source datasets. It is not an official hazard certification, zoning approval, building-safety rating, structural assessment, engineering recommendation, or disaster forecast.";
+  const DISCLAIMER = "This report is a preliminary multi-hazard screening output based on selected available data. It does not certify that a location is safe or unsafe and does not replace official hazard, planning, engineering, geological, geotechnical, or regulatory assessment.";
   const AVAILABLE_HAZARD_STATUS = new Set(["available", "verified", "success", "ok"]);
   const HAZARD_STATUS_MESSAGES = {
     available: "Official classification available",
@@ -31,6 +65,9 @@
     map: null,
     tileLayer: null,
     tileLoaded: false,
+    baseLayers: new Map(),
+    basemapReady: new Set(),
+    activeBasemap: "satellite",
     boundaryGeoJson: null,
     barangayGeoJson: null,
     boundaryStatus: "Status not reported",
@@ -43,6 +80,7 @@
     ulapStatusLoaded: false,
     ulapStatusFailed: false,
     ulapServices: [],
+    runtimeDataMode: "snapshot",
     liveHazardResponse: null,
     liveHazards: new Map(),
     liveHazardCoordinates: null,
@@ -61,7 +99,8 @@
       "api-status", "search-form", "location-search", "search-results",
       "coordinate-form", "latitude", "longitude", "inside-badge",
       "selection-summary", "ulap-point-status", "run-assessment", "toggle-boundary",
-      "toggle-barangays", "hazard-layer-controls", "map-legend",
+      "toggle-barangays", "basemap-controls", "basemap-attribution",
+      "hazard-layer-controls", "map-legend",
       "ulap-health-badge", "ulap-health-summary", "ulap-service-list",
       "history-list", "map", "map-loading", "map-notice",
       "fit-basey", "clear-selection", "map-data-state",
@@ -69,7 +108,8 @@
       "assessment-status", "result-actions", "preview-report",
       "download-report", "report-dialog", "close-report",
       "report-preview", "print-preview", "download-report-dialog",
-      "toast-region"
+      "toast-region", "use-location", "reset-map", "open-controls",
+      "close-controls", "mobile-assess", "start-new-assessment"
     ].forEach((id) => {
       els[id] = document.getElementById(id);
     });
@@ -298,32 +338,68 @@
     state.map = L.map("map", {
       zoomControl: true,
       attributionControl: true,
-      minZoom: 7,
-      maxZoom: 19
+      minZoom: 9,
+      maxZoom: 19,
+      maxBounds: BASEY_FALLBACK_BOUNDS,
+      maxBoundsViscosity: 1
     }).setView(BASEY_CENTER, 11);
 
-    state.tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "&copy; OpenStreetMap contributors",
-      crossOrigin: true
-    });
-    state.tileLayer.on("tileload", () => {
-      state.tileLoaded = true;
-      setMapNotice("basemap", null);
-    });
-    state.tileLayer.on("tileerror", () => {
-      if (!state.tileLoaded) {
-        setMapNotice("basemap", "Basemap tiles are unavailable; loaded overlays and coordinate selection can still be used.");
-      }
-    });
-    state.tileLayer.addTo(state.map);
-    state.map.on("click", (event) => {
-      selectLocation(event.latlng.lat, event.latlng.lng, "map click");
+    [
+      ["municipalBoundaryPane", 410],
+      ["barangayBoundaryPane", 420],
+      ["hazardOverlayPane", 430]
+    ].forEach(([name, zIndex]) => {
+      state.map.createPane(name);
+      state.map.getPane(name).style.zIndex = String(zIndex);
     });
 
+    Object.entries(BASEMAP_DEFINITIONS).forEach(([key, definition]) => {
+      const layer = L.tileLayer(definition.url, definition.options);
+      layer.on("tileload", () => {
+        state.basemapReady.add(key);
+        if (state.activeBasemap === key) {
+          state.tileLoaded = true;
+          setMapNotice("basemap", null);
+        }
+      });
+      layer.on("tileerror", () => {
+        if (state.activeBasemap === key && !state.basemapReady.has(key)) {
+          setMapNotice("basemap", `${definition.label} basemap tiles are unavailable; loaded overlays and coordinate selection can still be used.`);
+        }
+      });
+      state.baseLayers.set(key, layer);
+    });
+    setBasemap("satellite");
+    state.map.on("click", selectLocationFromMapEvent);
+  }
+
+  function lockMapToBasey(bounds) {
+    if (!state.map || !bounds?.isValid?.()) return;
+    const navigationBounds = bounds.pad(.04);
+    state.map.setMaxBounds(navigationBounds);
+    const fittedZoom = state.map.getBoundsZoom(navigationBounds, false);
+    state.map.setMinZoom(Math.max(9, fittedZoom));
+  }
+
+  function setBasemap(key) {
+    const definition = BASEMAP_DEFINITIONS[key];
+    const nextLayer = state.baseLayers.get(key);
+    if (!state.map || !definition || !nextLayer) return;
+    if (state.tileLayer && state.tileLayer !== nextLayer) {
+      state.map.removeLayer(state.tileLayer);
+    }
+    state.activeBasemap = key;
+    state.tileLayer = nextLayer;
+    state.tileLoaded = state.basemapReady.has(key);
+    if (!state.map.hasLayer(nextLayer)) nextLayer.addTo(state.map);
+    nextLayer.bringToBack();
+    if (els["basemap-attribution"]) {
+      els["basemap-attribution"].textContent = definition.shortAttribution;
+    }
+    setMapNotice("basemap", null);
     window.setTimeout(() => {
-      if (!state.tileLoaded) {
-        setMapNotice("basemap", "Basemap tiles are unavailable; loaded overlays and coordinate selection can still be used.");
+      if (state.activeBasemap === key && !state.basemapReady.has(key)) {
+        setMapNotice("basemap", `${definition.label} basemap tiles are unavailable; loaded overlays and coordinate selection can still be used.`);
       }
     }, 7000);
   }
@@ -407,6 +483,7 @@
     state.boundaryGeoJson = geoJson;
     if (state.map) {
       state.boundaryLayer = L.geoJSON(geoJson, {
+        pane: "municipalBoundaryPane",
         style: {
           color: "#123c36",
           weight: 3,
@@ -418,10 +495,14 @@
         onEachFeature: (feature, layer) => {
           const status = dataStatus(feature.properties || {});
           layer.bindPopup(`<strong>${escapeHtml(featureLabel(feature, "Basey municipal boundary"))}</strong><br><small>${escapeHtml(status)} municipal boundary</small>`);
+          layer.on("click", selectLocationFromMapEvent);
         }
       }).addTo(state.map);
       const bounds = state.boundaryLayer.getBounds();
-      if (bounds.isValid()) state.map.fitBounds(bounds.pad(.04));
+      if (bounds.isValid()) {
+        lockMapToBasey(bounds);
+        state.map.fitBounds(bounds.pad(.04));
+      }
     }
   }
 
@@ -448,6 +529,7 @@
     state.barangayGeoJson = geoJson;
     if (state.map) {
       state.barangayLayer = L.geoJSON(geoJson, {
+        pane: "barangayBoundaryPane",
         style: {
           color: "#3d7b6b",
           weight: 1,
@@ -461,6 +543,7 @@
           const status = dataStatus(feature.properties || {});
           layer.bindTooltip(escapeHtml(name), { sticky: true });
           layer.bindPopup(`<strong>${escapeHtml(name)}</strong><br><small>${escapeHtml(status)} boundary · click the map to select this point.</small>`);
+          layer.on("click", selectLocationFromMapEvent);
         }
       }).addTo(state.map);
     }
@@ -505,6 +588,12 @@
       service.hazard,
       service.slug
     ), "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  }
+
+  function hazardLayerStateKey(dataset) {
+    return serviceKey(dataset)
+      || datasetType(dataset)
+      || String(firstDefined(dataset.id, dataset.layerId, dataset.layer_id, dataset.name, "hazard"));
   }
 
   function serviceStatus(service) {
@@ -563,7 +652,10 @@
       service.copyrightText,
       service.copyright_text,
       service.agency,
-      service.provider
+      service.provider,
+      service.sourceName,
+      service.source_name,
+      service.metadata?.source_name
     ), "Attribution not reported");
   }
 
@@ -663,7 +755,41 @@
     return payload;
   }
 
+  async function loadRuntimeHazardRegistry() {
+    const health = unwrap(await apiFetch("/health")) || {};
+    state.runtimeDataMode = textValue(firstDefined(
+      health.runtimeDataMode,
+      health.runtime_data_mode
+    ), "snapshot").trim().toLowerCase();
+    if (state.runtimeDataMode === "live") {
+      await loadUlapStatus();
+      return loadUlapServices();
+    }
+
+    const payload = unwrap(await apiFetch("/hazard-layers")) || {};
+    state.ulapServices = normalizeServiceCollection(payload);
+    state.hazardDatasets = state.ulapServices.filter((service) =>
+      REQUIRED_HAZARDS.some((definition) => datasetType(service) === definition.key)
+    );
+    const missing = REQUIRED_HAZARDS.filter((definition) =>
+      !state.hazardDatasets.some((dataset) => datasetType(dataset) === definition.key)
+    );
+    state.ulapStatus = {
+      status: missing.length ? "degraded" : "available",
+      notice: missing.length
+        ? `Local snapshot mode is active. Missing snapshots: ${missing.map((item) => item.label).join(", ")}.`
+        : "All required local hazard snapshots are active.",
+      runtimeDataMode: "snapshot"
+    };
+    state.ulapStatusLoaded = true;
+    state.ulapStatusFailed = false;
+    renderUlapHealth();
+    renderHazardControls();
+    return payload;
+  }
+
   function renderUlapHealth() {
+    const snapshotMode = state.runtimeDataMode === "snapshot";
     const rootStatus = normalizeStatus(firstDefined(
       state.ulapStatus?.overallStatus,
       state.ulapStatus?.overall_status,
@@ -687,12 +813,12 @@
       state.ulapStatus?.notice
     );
     els["ulap-health-summary"].innerHTML = `
-      <strong>${escapeHtml(statusMessage(rootStatus, "ULAP service status"))}</strong>
-      <span>${escapeHtml(textValue(summary, checkedAt ? `Last checked ${formatDateTime(checkedAt)}` : "Live validation time not reported"))}</span>`;
+      <strong>${escapeHtml(statusMessage(rootStatus, snapshotMode ? "Local snapshot status" : "ULAP service status"))}</strong>
+      <span>${escapeHtml(textValue(summary, checkedAt ? `Last checked ${formatDateTime(checkedAt)}` : snapshotMode ? "Snapshot import time is shown per dataset" : "Live validation time not reported"))}</span>`;
 
     if (!state.ulapServices.length) {
-      els["ulap-service-list"].innerHTML = `<p class="muted">No verified ULAP service records were returned. Required hazards remain unavailable.</p>`;
-      setApiStatus(kind === "danger" ? "offline" : "online", `ULAP: ${statusLabel(rootStatus)}`);
+      els["ulap-service-list"].innerHTML = `<p class="muted">No validated ${snapshotMode ? "local snapshot" : "ULAP service"} records were returned. Required hazards remain unavailable.</p>`;
+      setApiStatus(kind === "danger" ? "offline" : "online", `${snapshotMode ? "Snapshots" : "ULAP"}: ${statusLabel(rootStatus)}`);
       return;
     }
     const serviceRows = state.ulapServices.map((service) => {
@@ -722,13 +848,16 @@
     );
     missingRequired.forEach((definition) => {
       serviceRows.push(`<article class="service-item">
-        <div><strong>${escapeHtml(definition.label)}</strong><small>No verified ULAP endpoint is configured.</small></div>
+        <div><strong>${escapeHtml(definition.label)}</strong><small>No validated ${snapshotMode ? "local snapshot is active" : "ULAP endpoint is configured"}.</small></div>
         <span class="badge neutral">Unavailable</span>
       </article>`);
     });
     els["ulap-service-list"].innerHTML = serviceRows.join("");
     const unavailableCount = state.ulapServices.filter((service) => !AVAILABLE_HAZARD_STATUS.has(serviceStatus(service))).length + missingRequired.length;
     setApiStatus(kind === "danger" ? "offline" : "online", unavailableCount ? `ULAP partial · ${unavailableCount} unavailable` : "ULAP services available");
+    setApiStatus(kind === "danger" ? "offline" : "online", unavailableCount
+      ? `${snapshotMode ? "Local snapshots" : "ULAP"} partial - ${unavailableCount} unavailable`
+      : `${snapshotMode ? "Local snapshots" : "ULAP services"} available`);
   }
 
   function renderHazardControls() {
@@ -742,6 +871,13 @@
       const label = service ? serviceName(service, definition.label) : definition.label;
       const layerId = service && firstDefined(service.layerId, service.layer_id);
       const attribution = service ? serviceAttribution(service) : "No verified endpoint configured";
+      const snapshotMeta = service && state.runtimeDataMode === "snapshot"
+        ? [
+            "Local snapshot",
+            textValue(firstDefined(service.quality_status, service.metadata?.quality_status), "").trim(),
+            Number.isFinite(Number(service.feature_count)) ? `${Number(service.feature_count).toLocaleString()} features` : null
+          ].filter(Boolean).join(" · ")
+        : null;
       return `
         <div class="layer-service-row">
           <label class="switch-row">
@@ -755,11 +891,15 @@
               aria-label="${canDisplay ? "Show" : "No verified display endpoint for"} ${escapeHtml(definition.label)} layer">
           </label>
           <div class="layer-service-meta">
-            <span>${escapeHtml(layerId !== undefined && layerId !== null ? `Layer ${layerId}` : "Layer not verified")}</span>
+            <span>${escapeHtml(snapshotMeta || (layerId !== undefined && layerId !== null ? `Layer ${layerId}` : "Layer not verified"))}</span>
             <span>${escapeHtml(attribution)}</span>
             ${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Source URL</a>` : ""}
             ${!canDisplay ? `<span>${displayUrl ? "Overlay disabled until service verification succeeds" : "Point query only"}</span>` : ""}
           </div>
+          ${canDisplay ? `<label class="layer-opacity">Opacity
+            <input type="range" min="15" max="85" value="42" data-layer-opacity-index="${index}" aria-label="${escapeHtml(definition.label)} layer opacity">
+            <output>42%</output>
+          </label>` : ""}
         </div>`;
     });
     els["hazard-layer-controls"].innerHTML = rows.join("");
@@ -846,9 +986,74 @@
     return fallback;
   }
 
+  function arcGisExportOverlay(dataset) {
+    if (!state.map || !window.L) {
+      return Promise.reject(new Error("The map library is unavailable"));
+    }
+    const sourceUrl = serviceLayerUrl(dataset);
+    if (!sourceUrl) {
+      return Promise.reject(new Error("No official ArcGIS layer URL is available"));
+    }
+    const source = new URL(sourceUrl);
+    if (source.hostname !== "ulap-hazards.georisk.gov.ph") {
+      return Promise.reject(new Error("The fallback renderer only accepts the verified GeoRiskPH host"));
+    }
+    const layerMatch = source.pathname.match(/\/MapServer\/(\d+)\/?$/i);
+    if (!layerMatch) {
+      return Promise.reject(new Error("The official ArcGIS layer URL is not export-compatible"));
+    }
+    source.pathname = source.pathname.replace(/\/\d+\/?$/, "/export");
+    source.search = "";
+    const bounds = state.boundaryLayer?.getBounds()?.isValid()
+      ? state.boundaryLayer.getBounds()
+      : L.latLngBounds(BASEY_FALLBACK_BOUNDS);
+    const width = 1600;
+    const height = Math.round(clamp(
+      width * ((bounds.getNorth() - bounds.getSouth()) / (bounds.getEast() - bounds.getWest())),
+      700,
+      2000
+    ));
+    source.searchParams.set("f", "image");
+    source.searchParams.set("bbox", [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()].join(","));
+    source.searchParams.set("bboxSR", "4326");
+    source.searchParams.set("imageSR", "4326");
+    source.searchParams.set("size", `${width},${height}`);
+    source.searchParams.set("format", "png32");
+    source.searchParams.set("transparent", "true");
+    source.searchParams.set("layers", `show:${layerMatch[1]}`);
+
+    const layer = L.imageOverlay(source.href, bounds, {
+      pane: "hazardOverlayPane",
+      opacity: .42,
+      interactive: true,
+      alt: `${textValue(dataset.display_name || dataset.name, "Flood")} official hazard overlay`
+    });
+    layer.bindPopup(
+      `<strong>${escapeHtml(textValue(dataset.display_name || dataset.name, "Flood"))}</strong>` +
+      `<br>Official ArcGIS map rendering` +
+      `<br><small>${escapeHtml(serviceAttribution(dataset))}</small>`
+    );
+    layer.on("click", selectLocationFromMapEvent);
+    return new Promise((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        state.map?.removeLayer(layer);
+        reject(new Error("The official ArcGIS map image timed out"));
+      }, 15000);
+      layer.once("load", () => {
+        window.clearTimeout(timeout);
+        resolve(layer);
+      });
+      layer.once("error", () => {
+        window.clearTimeout(timeout);
+        state.map?.removeLayer(layer);
+        reject(new Error("The official ArcGIS map image could not be loaded"));
+      });
+      layer.addTo(state.map);
+    });
+  }
+
   async function toggleHazardLayer(dataset, checkbox) {
-    const id = firstDefined(dataset.id, dataset.layerId, dataset.layer_id, dataset.service, dataset.name);
-    const key = String(id);
+    const key = hazardLayerStateKey(dataset);
     if (!checkbox.checked) {
       const existing = state.hazardLayers.get(key);
       if (existing?.layer && state.map) state.map.removeLayer(existing.layer);
@@ -857,52 +1062,94 @@
       return;
     }
     checkbox.disabled = true;
+    let displayFailed = false;
     try {
       if (!AVAILABLE_HAZARD_STATUS.has(serviceStatus(dataset))) {
-        throw new Error("Live ULAP validation has not verified this overlay");
+        throw new Error("The selected hazard overlay is not available");
       }
       const displayUrl = serviceDisplayUrl(dataset);
       if (!displayUrl) throw new Error("No backend-controlled Basey display endpoint is available");
-      const payload = await apiFetch(displayUrl);
-      const geoJson = parseGeoJson(payload);
-      if (!geoJson?.features?.length) throw new Error("No mapped features were returned");
       if (!state.map) throw new Error("The map library is unavailable");
       const type = datasetType(dataset);
-      const layer = L.geoJSON(geoJson, {
-        style: (feature) => {
-          const properties = feature?.properties || {};
-          const classification = featureClassification(properties, dataset).label;
-          return {
-            color: hazardColor(type, classification),
-            weight: .8,
-            opacity: .95,
-            fillColor: hazardColor(type, classification),
-            fillOpacity: .42
-          };
-        },
-        pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
-          radius: 5,
-          color: hazardColor(type, featureClassification(feature?.properties || {}, dataset).label),
-          fillOpacity: .7
-        }),
-        onEachFeature: (feature, featureLayer) => {
-          const properties = feature?.properties || {};
-          const classification = featureClassification(properties, dataset);
-          featureLayer.bindPopup(
-            `<strong>${escapeHtml(textValue(dataset.display_name || dataset.name, titleCase(type)))}</strong>` +
-            `<br>Official classification: ${escapeHtml(textValue(classification.label, "Not reported"))}` +
-            `${classification.code === undefined || classification.code === null ? "" : `<br>Source code: ${escapeHtml(classification.code)}`}` +
-            `<br><small>${escapeHtml(serviceAttribution(dataset))}</small>`
+      let geoJson = null;
+      let layer = null;
+      let displayMode = "features";
+      try {
+        const payload = await apiFetch(displayUrl, { timeout: 30000 });
+        geoJson = parseGeoJson(payload);
+        if (!geoJson?.features?.length) throw new Error("No mapped features were returned");
+      } catch (error) {
+        if (type !== "flood") throw error;
+        layer = await arcGisExportOverlay(dataset);
+        displayMode = "arcgis_export";
+      }
+      if (!layer) {
+        layer = L.geoJSON(geoJson, {
+          pane: "hazardOverlayPane",
+          style: (feature) => {
+            const properties = feature?.properties || {};
+            const classification = featureClassification(properties, dataset).label;
+            return {
+              color: hazardColor(type, classification),
+              weight: .8,
+              opacity: .95,
+              fillColor: hazardColor(type, classification),
+              fillOpacity: .42
+            };
+          },
+          pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
+            pane: "hazardOverlayPane",
+            radius: 5,
+            color: hazardColor(type, featureClassification(feature?.properties || {}, dataset).label),
+            fillOpacity: .7
+          }),
+          onEachFeature: (feature, featureLayer) => {
+            const properties = feature?.properties || {};
+            const classification = featureClassification(properties, dataset);
+            featureLayer.bindPopup(
+              `<strong>${escapeHtml(textValue(dataset.display_name || dataset.name, titleCase(type)))}</strong>` +
+              `<br>Official classification: ${escapeHtml(textValue(classification.label, "Not reported"))}` +
+              `${classification.code === undefined || classification.code === null ? "" : `<br>Source code: ${escapeHtml(classification.code)}`}` +
+              `<br><small>${escapeHtml(serviceAttribution(dataset))}</small>`
+            );
+            featureLayer.on("click", selectLocationFromMapEvent);
+          }
+        }).addTo(state.map);
+      }
+      state.hazardLayers.set(key, { layer, dataset, geoJson, displayMode });
+      if (displayMode === "arcgis_export") {
+        const row = checkbox.closest(".layer-service-row");
+        const status = row?.querySelector(".layer-status");
+        if (status) status.textContent = "Available · map image";
+        const metadata = row?.querySelector(".layer-service-meta");
+        if (metadata && !metadata.querySelector(".overlay-render-note")) {
+          metadata.insertAdjacentHTML(
+            "beforeend",
+            `<span class="overlay-render-note">Rendered by the official ArcGIS map service because feature export is unavailable.</span>`
           );
         }
-      }).addTo(state.map);
-      state.hazardLayers.set(key, { layer, dataset, geoJson });
+      }
       renderLegend();
     } catch (error) {
+      displayFailed = true;
       checkbox.checked = false;
+      checkbox.disabled = true;
+      const row = checkbox.closest(".layer-service-row");
+      const status = row?.querySelector(".layer-status");
+      if (status) {
+        status.className = "layer-status is-danger";
+        status.textContent = "Display unavailable";
+      }
+      const metadata = row?.querySelector(".layer-service-meta");
+      if (metadata && !metadata.querySelector(".overlay-display-error")) {
+        metadata.insertAdjacentHTML(
+          "beforeend",
+          `<span class="overlay-display-error">Overlay request failed. Reload the page to retry after the source recovers.</span>`
+        );
+      }
       showToast(`Could not display this hazard layer: ${error.message}`, "error");
     } finally {
-      checkbox.disabled = false;
+      if (!displayFailed) checkbox.disabled = false;
     }
   }
 
@@ -955,14 +1202,10 @@
   }
 
   async function loadSpatialData() {
-    const loadUlapRegistry = async () => {
-      await loadUlapStatus();
-      return loadUlapServices();
-    };
     const tasks = await Promise.allSettled([
       loadBoundary(),
       loadBarangays(),
-      loadUlapRegistry()
+      loadRuntimeHazardRegistry()
     ]);
     els["map-loading"].hidden = true;
     const boundaryFailures = tasks.slice(0, 2).filter((result) => result.status === "rejected");
@@ -974,18 +1217,18 @@
       setMapNotice("data", null);
     }
     if (ulapFailures.length) {
-      state.ulapStatus = { status: "service_error", message: "ULAP status or service metadata could not be retrieved." };
+      state.ulapStatus = { status: "service_error", message: "Hazard snapshot status could not be retrieved." };
       state.ulapStatusLoaded = true;
       state.ulapStatusFailed = true;
       renderUlapHealth();
       renderHazardControls();
-      setMapNotice("ulap", "One or more ULAP services are unavailable. A complete assessment is blocked when a required hazard cannot be retrieved.");
+      setMapNotice("ulap", "One or more local hazard snapshots are unavailable. A complete assessment is blocked when required evidence is missing.");
     } else {
       setMapNotice("ulap", null);
     }
     renderUlapHealth();
     els["map-data-state"].innerHTML = spatialLayers === 2
-      ? `<strong>Data status:</strong> boundary (${escapeHtml(state.boundaryStatus)}), barangays (${escapeHtml(state.barangayStatus)}), ULAP (${escapeHtml(statusLabel(firstDefined(state.ulapStatus?.overallStatus, state.ulapStatus?.overall_status, state.ulapStatus?.status, "pending_verification")))})`
+      ? `<strong>Data status:</strong> boundary (${escapeHtml(state.boundaryStatus)}), barangays (${escapeHtml(state.barangayStatus)}), hazards (${escapeHtml(state.runtimeDataMode === "snapshot" ? "Local snapshots" : statusLabel(firstDefined(state.ulapStatus?.overallStatus, state.ulapStatus?.overall_status, state.ulapStatus?.status, "pending_verification")))})`
       : `<strong>Data status:</strong> ${spatialLayers}/2 boundary layers loaded`;
     if (state.selection && state.selection.inside === null && !state.selection.checking) {
       const identified = await identifyLocation(state.selection.latitude, state.selection.longitude);
@@ -1127,6 +1370,14 @@
     });
   }
 
+  function selectLocationFromMapEvent(event) {
+    if (!event?.latlng) return;
+    const originalEvent = event.originalEvent;
+    if (originalEvent?.geosafeSelectionHandled) return;
+    if (originalEvent) originalEvent.geosafeSelectionHandled = true;
+    void selectLocation(event.latlng.lat, event.latlng.lng, "map click");
+  }
+
   function resetResultView() {
     state.assessment = null;
     els["results-empty"].hidden = false;
@@ -1156,7 +1407,7 @@
     els.longitude.value = lng.toFixed(6);
     els["inside-badge"].className = "badge neutral";
     els["inside-badge"].textContent = "Checking…";
-    els["selection-summary"].innerHTML = `<p>Checking the selected point against the loaded Basey boundary and barangays…</p>`;
+    els["selection-summary"].innerHTML = `<p>Checking the selected point against the Basey municipal boundary…</p>`;
     els["run-assessment"].disabled = true;
     els["clear-selection"].disabled = false;
     els["search-results"].innerHTML = "";
@@ -1166,8 +1417,13 @@
         state.marker = L.marker([lat, lng], {
           icon: markerIcon(),
           keyboard: true,
+          draggable: true,
           title: "Selected assessment point"
         }).addTo(state.map);
+        state.marker.on("dragend", (event) => {
+          const point = event.target.getLatLng();
+          selectLocation(point.lat, point.lng, "map_click");
+        });
       } else {
         state.marker.setLatLng([lat, lng]);
       }
@@ -1208,7 +1464,7 @@
     const barangay = selection.barangay?.name || "Not identified";
     let notice = "";
     if (selection.inside === false) {
-      notice = `<div class="quality-banner danger"><span class="quality-icon"></span><div><strong>Outside the loaded coverage</strong><p>Choose a point inside the loaded Basey municipal boundary and verify its source status.</p></div></div>`;
+      notice = `<div class="quality-banner danger"><span class="quality-icon"></span><div><strong>Outside the supported area</strong><p>This version of GeoSafe-FIS currently supports locations within Basey, Samar.</p></div></div>`;
     } else if (selection.inside === null) {
       notice = `<div class="quality-banner"><span class="quality-icon"></span><div><strong>Boundary check unavailable</strong><p>The assessment is disabled until Basey coverage can be confirmed.</p></div></div>`;
     } else if (!selection.barangay) {
@@ -1227,6 +1483,7 @@
       </dl>
       ${notice}`;
     els["run-assessment"].disabled = selection.inside !== true;
+    if (els["mobile-assess"]) els["mobile-assess"].disabled = selection.inside !== true;
 
     if (state.marker) {
       state.marker.bindPopup(
@@ -1248,8 +1505,9 @@
     els.longitude.value = "";
     els["inside-badge"].className = "badge neutral";
     els["inside-badge"].textContent = "No point";
-    els["selection-summary"].innerHTML = "<p>Select a location to check it against the loaded Basey boundary and its stated source status.</p>";
+    els["selection-summary"].innerHTML = "<p>Search above or click anywhere inside Basey to place a pin.</p>";
     els["run-assessment"].disabled = true;
+    if (els["mobile-assess"]) els["mobile-assess"].disabled = true;
     els["clear-selection"].disabled = true;
     renderPointHazardStatus();
     resetResultView();
@@ -1446,13 +1704,13 @@
       ),
       attribution: firstDefined(value.attribution, value.copyrightText, value.copyright_text),
       warnings: [
-        ...(isRejectedDemo ? ["A non-live hazard record was rejected. GeoSafe-FIS requires a verified ULAP source."] : []),
+        ...(isRejectedDemo ? ["A demonstration hazard record was rejected. GeoSafe-FIS requires validated official evidence."] : []),
         ...normalizeStringList(firstDefined(value.warnings, value.notices, value.qualityWarnings, value.quality_warnings))
       ],
       cache,
       rawAttributes: firstDefined(value.rawAttributes, value.raw_attributes, value.attributes),
       statusDetail: isRejectedDemo
-        ? "A verified live ULAP hazard source is required."
+        ? "Validated official hazard evidence is required."
         : status === "changed_schema" && (inferredLabel === undefined || inferredLabel === null)
           ? "The live source code could not be decoded to a verified official label."
           : firstDefined(
@@ -1474,19 +1732,19 @@
 
   function renderPointHazardStatus(loading = false) {
     if (loading) {
-      els["ulap-point-status"].innerHTML = `<div class="point-status-loading"><span class="spinner" aria-hidden="true"></span><span>Querying current ULAP classifications…</span></div>`;
+      els["ulap-point-status"].innerHTML = `<div class="point-status-loading"><span class="spinner" aria-hidden="true"></span><span>Reading local hazard classifications…</span></div>`;
       return;
     }
     if (!state.liveHazardResponse) {
-      els["ulap-point-status"].innerHTML = `<p class="muted">Live hazard sources will be queried after the point is confirmed inside Basey.</p>`;
+      els["ulap-point-status"].innerHTML = `<p class="muted">Local hazard snapshots will be checked after the point is confirmed inside Basey.</p>`;
       return;
     }
     const hazards = pointHazards();
     const retrievedAt = firstDefined(state.liveHazardResponse.retrievedAt, state.liveHazardResponse.retrieved_at);
     els["ulap-point-status"].innerHTML = `
       <div class="point-status-heading">
-        <strong>Current source query</strong>
-        <small>${escapeHtml(retrievedAt ? formatDateTime(retrievedAt) : "Retrieval time not reported")}</small>
+        <strong>${escapeHtml(state.runtimeDataMode === "snapshot" ? "Local hazard snapshot" : "Live hazard check")}</strong>
+        <small>${escapeHtml(retrievedAt ? formatDateTime(retrievedAt) : "Snapshot time not reported")}</small>
       </div>
       <div class="point-status-grid">
         ${hazards.map((hazard) => `
@@ -1499,7 +1757,7 @@
           </div>`).join("")}
       </div>
       ${hazards.some((hazard) => !hazard.available)
-        ? `<p class="point-status-warning">A complete three-hazard score is blocked while any required source is unavailable. Missing data is never treated as low.</p>`
+        ? `<p class="point-status-warning">Assessment remains incomplete until all three required sources respond.</p>`
         : ""}`;
   }
 
@@ -1525,7 +1783,7 @@
       state.liveHazardResponse = {
         hazards: {},
         retrievedAt: new Date().toISOString(),
-        dataQuality: [`ULAP point query failed: ${error.message}`],
+        dataQuality: [`Hazard lookup failed: ${error.message}`],
         queryError: error.message
       };
       state.liveHazards = new Map(REQUIRED_HAZARDS.map((definition) => [
@@ -1617,6 +1875,19 @@
       assessment.assessment?.normalized_inputs
     )).map((item) => ({ ...item, modelValue: firstDefined(item.modelValue, item.value) })));
     const responseHazards = liveHazardCollection(assessment);
+    const indicatorWeightRecord = firstDefined(
+      assessment.result?.indicator_weights,
+      assessment.result?.indicatorWeights,
+      assessment.assessment?.indicatorWeights,
+      assessment.indicator_weights,
+      {}
+    ) || {};
+    const indicatorWeights = firstDefined(
+      indicatorWeightRecord.values,
+      indicatorWeightRecord.weights,
+      indicatorWeightRecord,
+      {}
+    ) || {};
 
     return REQUIRED_HAZARDS.map((definition) => {
       const matchingItems = rawHazards.filter((hazard) => normalizeHazardKey(firstDefined(
@@ -1676,6 +1947,15 @@
         officialCode: source.officialCode,
         classificationField: source.classificationField,
         normalized,
+        appliedWeight: toNumber(firstDefined(
+          indicatorWeights[definition.key],
+          indicatorWeights[definition.key.replace("_", "-")]
+        )),
+        weightingMethod: firstDefined(
+          indicatorWeightRecord.method,
+          indicatorWeightRecord.applied_method,
+          "Not reported"
+        ),
         source: firstDefined(source.service, source.agency, definition.label),
         agency: source.agency,
         service: source.service,
@@ -2142,7 +2422,7 @@
 
   function buildScoreCard(facts) {
     const score = !facts.complete || facts.score === null ? "—" : Math.round(facts.score);
-    const ringValue = !facts.complete || facts.score === null ? 0 : clamp(facts.score, 1, 100);
+    const ringValue = !facts.complete || facts.score === null ? 0 : clamp(facts.score, 0, 100);
     return `
       <section class="score-card ${facts.complete ? "" : "incomplete"}" aria-label="Vulnerability result">
         <div class="score-main">
@@ -2150,7 +2430,7 @@
             <span class="score-value">${escapeHtml(score)}</span>
           </div>
           <div class="score-label">
-            <p>${facts.complete ? "Normalized score · 1–100" : "Assessment status"}</p>
+            <p>${facts.complete ? "Relative screening score · 0–100" : "Assessment status"}</p>
             <h3>${escapeHtml(facts.complete ? facts.category : "Incomplete")}</h3>
             <small>${facts.complete
               ? `${facts.modelIsDemo ? "UNVALIDATED MODEL · " : ""}Model ${escapeHtml(facts.modelVersion)} · screening category`
@@ -2194,17 +2474,18 @@
                 </div>
 
                 <div class="model-transform-value">
-                  <span class="value-label">GeoSafe-FIS model transformation</span>
+                  <span class="value-label">Normalized input (0–1)</span>
                   <strong>${hazard.normalized === null
                     ? "Not calculated"
-                    : `${escapeHtml(formatValue(hazard.normalized, 2))} / 100`}</strong>
-                  <small>This internal input is not an official agency numerical rating.</small>
+                    : escapeHtml(formatValue(hazard.normalized / 100, 3))}</strong>
+                  <small>Model index ${hazard.normalized === null ? "not calculated" : `${escapeHtml(formatValue(hazard.normalized, 2))} / 100`}; not an official agency numerical rating.</small>
                 </div>
 
                 <dl class="hazard-provenance">
                   <dt>Agency / service</dt><dd>${escapeHtml(textValue(serviceLabel, "Not reported"))}</dd>
                   <dt>Data date</dt><dd>${escapeHtml(formatDate(hazard.referenceDate))}</dd>
                   <dt>Retrieved</dt><dd>${escapeHtml(formatDateTime(hazard.retrievedAt))}</dd>
+                  <dt>Applied indicator weight</dt><dd>${hazard.appliedWeight === null ? "Not calculated" : escapeHtml(formatValue(hazard.appliedWeight, 3))} · ${escapeHtml(titleCase(hazard.weightingMethod))}</dd>
                   <dt>Spatial reference</dt><dd>${escapeHtml(textValue(hazard.spatialReference))}</dd>
                   <dt>Cache</dt><dd>${escapeHtml(titleCase(cache.source))}${cache.expiresAt ? ` · expires ${escapeHtml(formatDateTime(cache.expiresAt))}` : ""}${cache.stale ? ` <span class="badge danger">Stale</span>` : ""}</dd>
                 </dl>
@@ -2438,6 +2719,7 @@
     els["result-actions"].hidden = true;
     els["results-loading"].hidden = false;
     setAssessmentStatus("info", "Evaluating");
+    setProgress("location");
 
     const payload = {
       latitude: selection.latitude,
@@ -2461,14 +2743,20 @@
     };
 
     try {
+      setProgress("layers");
       const livePayload = await loadLiveHazardsAtLocation(selection.latitude, selection.longitude);
+      setProgress("classifications");
+      setProgress("completeness");
+      setProgress("calculation");
       const created = await apiFetch("/assessments", {
         method: "POST",
         body: JSON.stringify(payload),
         timeout: 30000
       });
+      setProgress("explanation");
       const assessment = await hydrateAssessment(created);
       if (livePayload && !assessment.ulap) assessment.ulap = livePayload;
+      setProgress("report");
       renderAssessment(assessment);
     } catch (error) {
       els["results-loading"].hidden = true;
@@ -2512,7 +2800,30 @@
       showToast(`Assessment could not be generated: ${error.message}`, "error");
     } finally {
       els["run-assessment"].disabled = state.selection?.inside !== true;
+      if (els["mobile-assess"]) els["mobile-assess"].disabled = state.selection?.inside !== true;
     }
+  }
+
+  function setProgress(activeStep) {
+    const order = ["location", "layers", "classifications", "completeness", "calculation", "explanation", "report"];
+    const activeIndex = order.indexOf(activeStep);
+    document.querySelectorAll("[data-progress-step]").forEach((item) => {
+      const index = order.indexOf(item.dataset.progressStep);
+      item.classList.toggle("is-active", index === activeIndex);
+      item.classList.toggle("is-complete", index >= 0 && index < activeIndex);
+    });
+    const message = document.querySelector("#results-loading > p");
+    const current = document.querySelector(`[data-progress-step="${activeStep}"]`);
+    if (message && current) message.textContent = `${current.textContent}...`;
+  }
+
+  function setControlsOpen(open) {
+    const rail = document.getElementById("assessment-controls");
+    rail?.classList.toggle("is-open", open);
+    els["open-controls"]?.setAttribute("aria-expanded", String(open));
+    document.body.classList.toggle("controls-open", open);
+    if (open) rail?.querySelector("input, button")?.focus();
+    else els["open-controls"]?.focus();
   }
 
   function recentSummary(assessment) {
@@ -2531,7 +2842,7 @@
 
   function saveRecent(assessment) {
     const summary = recentSummary(assessment);
-    if (!summary.id) return;
+    if (!PRIVATE_ASSESSMENT_ID.test(String(summary.id || ""))) return;
     state.recent = [summary, ...state.recent.filter((item) => String(item.id) !== String(summary.id))].slice(0, 10);
     try {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(state.recent));
@@ -2548,15 +2859,17 @@
     } catch {
       local = [];
     }
-    const remote = await optionalFetch("/assessments");
-    const remoteItems = asArray(remote).map(recentSummary);
-    const merged = [...remoteItems, ...local];
     const seen = new Set();
-    state.recent = merged.filter((item) => {
-      if (!item.id || seen.has(String(item.id))) return false;
+    state.recent = local.filter((item) => {
+      if (!PRIVATE_ASSESSMENT_ID.test(String(item.id || "")) || seen.has(String(item.id))) return false;
       seen.add(String(item.id));
       return true;
     }).slice(0, 10);
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(state.recent));
+    } catch {
+      // Private history remains optional when browser storage is unavailable.
+    }
     renderHistory();
   }
 
@@ -2712,10 +3025,48 @@
     els["coordinate-form"].addEventListener("submit", (event) => {
       event.preventDefault();
       selectLocation(els.latitude.value, els.longitude.value, "coordinate input");
+      els["coordinate-form"].closest("details")?.removeAttribute("open");
     });
 
     els["run-assessment"].addEventListener("click", runAssessment);
+    els["mobile-assess"]?.addEventListener("click", runAssessment);
     els["clear-selection"].addEventListener("click", clearSelection);
+    els["open-controls"]?.addEventListener("click", () => setControlsOpen(true));
+    els["close-controls"]?.addEventListener("click", () => setControlsOpen(false));
+    els["reset-map"]?.addEventListener("click", () => {
+      clearSelection();
+      if (state.map) state.map.fitBounds(BASEY_FALLBACK_BOUNDS);
+    });
+    els["start-new-assessment"]?.addEventListener("click", () => {
+      clearSelection();
+      setControlsOpen(false);
+      els["location-search"]?.focus();
+    });
+    els["use-location"]?.addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        showToast("Current location is not supported by this browser. Use search, coordinates, or the map instead.", "error");
+        return;
+      }
+      els["use-location"].disabled = true;
+      const locationLabel = els["use-location"].querySelector("span");
+      if (locationLabel) locationLabel.textContent = "Locating…";
+      els["use-location"].setAttribute("aria-label", "Locating current position");
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          els["use-location"].disabled = false;
+          if (locationLabel) locationLabel.textContent = "My location";
+          els["use-location"].setAttribute("aria-label", "Use current location");
+          selectLocation(position.coords.latitude, position.coords.longitude, "current_location", "Current location");
+        },
+        (error) => {
+          els["use-location"].disabled = false;
+          if (locationLabel) locationLabel.textContent = "My location";
+          els["use-location"].setAttribute("aria-label", "Use current location");
+          showToast(error.code === 1 ? "Location permission was not granted. You can still search, enter coordinates, or click the map." : "Current location could not be retrieved. Try again or select the point manually.", "error");
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+      );
+    });
 
     els["fit-basey"].addEventListener("click", () => {
       if (!state.map) return;
@@ -2735,11 +3086,26 @@
       else state.map.removeLayer(state.barangayLayer);
     });
 
+    els["basemap-controls"].addEventListener("change", (event) => {
+      const input = event.target.closest('input[name="basemap"]');
+      if (input?.checked) setBasemap(input.value);
+    });
+
     els["hazard-layer-controls"].addEventListener("change", (event) => {
       const checkbox = event.target.closest("[data-service-index]");
       if (!checkbox) return;
       const dataset = state.ulapServices[Number(checkbox.dataset.serviceIndex)];
       if (dataset) toggleHazardLayer(dataset, checkbox);
+    });
+    els["hazard-layer-controls"].addEventListener("input", (event) => {
+      const range = event.target.closest("[data-layer-opacity-index]");
+      if (!range) return;
+      const dataset = state.ulapServices[Number(range.dataset.layerOpacityIndex)];
+      const entry = dataset ? state.hazardLayers.get(hazardLayerStateKey(dataset)) : null;
+      const opacity = Number(range.value) / 100;
+      range.nextElementSibling.textContent = `${range.value}%`;
+      entry?.layer?.setStyle?.({ fillOpacity: opacity, opacity: Math.min(1, opacity + .35) });
+      entry?.layer?.setOpacity?.(opacity);
     });
 
     els["history-list"].addEventListener("click", (event) => {
@@ -2762,6 +3128,8 @@
     bindEvents();
     initMap();
     await Promise.all([loadSpatialData(), loadHistory()]);
+    const routeAssessment = location.pathname.match(/^\/assessment\/([A-Za-z0-9_-]{20,128})\/?$/);
+    if (routeAssessment) await openHistoryAssessment(routeAssessment[1]);
   }
 
   start().catch((error) => {

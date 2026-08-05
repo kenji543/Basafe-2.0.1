@@ -90,12 +90,14 @@ class MetadataValidatorTests(unittest.TestCase):
         ).validate(self.registry.get("flood"))
         self.assertEqual(result.status, Status.MISSING_CLASSIFICATION_FIELD)
 
-    def test_unconfigured_ground_shaking_is_unavailable_without_request(self) -> None:
+    def test_verified_ground_shaking_metadata(self) -> None:
         result = MetadataValidator(
-            MetadataStubClient({}), self.registry
+            MetadataStubClient(fixture("ground_shaking_layer_metadata.json")),
+            self.registry,
         ).validate(self.registry.get("ground_shaking"))
-        self.assertEqual(result.status, Status.UNAVAILABLE)
-        self.assertIn("No ground-shaking", result.message)
+        self.assertEqual(result.status, Status.VERIFIED)
+        self.assertEqual(result.metadata["classification_field"], "peiscode")
+        self.assertEqual(result.metadata["classification_domain"]["08"], "VIII")
 
     def test_supplied_boundary_stays_pending_even_when_structure_matches(self) -> None:
         payload = {

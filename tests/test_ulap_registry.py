@@ -15,7 +15,7 @@ REGISTRY = ROOT / "config" / "ulap-services.generated.json"
 
 
 class ServiceRegistryTests(unittest.TestCase):
-    def test_registry_preserves_exact_candidate_urls_and_known_gap(self) -> None:
+    def test_registry_preserves_verified_hazard_urls(self) -> None:
         registry = ServiceRegistry(REGISTRY, environment={})
         self.assertEqual(
             registry.get("flood").layer_url,
@@ -27,9 +27,14 @@ class ServiceRegistryTests(unittest.TestCase):
             registry.get("liquefaction").classification_field, "lccode"
         )
         ground = registry.get("ground_shaking")
-        self.assertFalse(ground.configured)
-        self.assertIsNone(ground.layer_url)
-        self.assertEqual(ground.verification["status"], "unavailable")
+        self.assertTrue(ground.configured)
+        self.assertEqual(ground.classification_field, "peiscode")
+        self.assertEqual(
+            ground.layer_url,
+            "https://gisweb.phivolcs.dost.gov.ph/arcgis/rest/services/"
+            "PHIVOLCSPublic/GroundShaking/MapServer/0",
+        )
+        self.assertEqual(ground.verification["status"], "verified")
 
     def test_supplied_file_provenance_is_explicitly_non_operational(self) -> None:
         audit = ServiceRegistry(REGISTRY, environment={}).source_manifest_audit

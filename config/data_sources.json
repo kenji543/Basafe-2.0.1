@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "stored_crs": "EPSG:4326",
-  "required_disclaimer": "This output is a preliminary decision-support screening result based on the availability and classifications of the cited source datasets. It is not an official hazard certification, zoning approval, building-safety rating, structural assessment, engineering recommendation, or disaster forecast.",
+  "required_disclaimer": "This report is a preliminary multi-hazard screening output based on selected available data. It does not certify that a location is safe or unsafe and does not replace official hazard, planning, engineering, geological, geotechnical, or regulatory assessment.",
   "supplied_boundary_source": {
     "file_name": "basey-barangay-boundary-final.json",
     "sha256": "027b6dbaacdee9fd83e1ce680e2015916ecd44d1ede2440571a86358d0b5a581",

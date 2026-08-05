@@ -16,7 +16,7 @@ User types, accounts, roles, permissions, approval workflows, administrative/sta
 
 ## 2. Implemented baseline
 
-The implemented package version is `0.4.0`; its bundled model is `0.4.0-demo`.
+The implemented package version is `0.5.0`; its bundled model is `0.5.1-demo`.
 
 ### 2.1 Runtime
 
@@ -72,7 +72,7 @@ The implemented application tables are:
 
 Geometry is stored as WGS 84 GeoJSON text. The current schema does not contain spatial-extension, bounding-box, user, role, permission, session, approval, or audit-log tables.
 
-Authorized imported hazard features store a normalized fraction from `0` through `1`; that compatibility path multiplies the fraction by 100 before fuzzy evaluation. Live ULAP results instead preserve the exact source code/official label and use the separately configured exact-code transformation for model `0.4.0-demo`.
+Authorized imported hazard features store a normalized fraction from `0` through `1`; that compatibility path multiplies the fraction by 100 before fuzzy evaluation. Live ULAP results instead preserve the exact source code/official label and use the separately configured exact-code transformation for model `0.5.1-demo`.
 
 ### 2.3 Data preparation
 
@@ -144,16 +144,16 @@ Query coordinate aliases, request shapes, limits, and exact response conventions
 
 ### 2.6 Fuzzy model
 
-`config/fuzzy_model.json` version `0.4.0-demo` implements:
+`config/fuzzy_model.json` version `0.5.1-demo` implements:
 
-- three required 0–100 inputs;
+- three required 0â€“100 inputs;
 - low/moderate/high triangular or trapezoidal memberships;
-- 12 weighted Mamdani rules;
+- a systematically generated, complete 27-rule monotonic Mamdani grid;
 - minimum for `AND`, maximum for `OR`;
 - weighted rule activation;
 - minimum implication and maximum aggregation;
-- centroid sampling at each integer from 1 through 100;
-- Low, Moderate, High, and Very High score categories; and
+- centroid sampling at each integer from 0 through 100;
+- Very Low, Low, Moderate, High, and Very High score categories; and
 - controlled recommendation templates and disclaimer.
 
 It also defines transparent demonstration lookups from live flood `fscode`
@@ -167,10 +167,12 @@ The software model is implemented; the hazard mappings, membership breakpoints, 
 
 ### 2.7 Unified frontend
 
-Only two HTML pages exist:
+The public frontend uses four HTML entry documents with clean route aliases:
 
-1. `/` (`web/index.html`) contains the map, local search, coordinate form, map-click selection, hazard controls, legend, results, report-preview dialog, PDF download, and unified history.
-2. `/methodology` (`web/methodology.html`) displays model definitions, sources, limitations, and disclaimer.
+1. `/` (`web/index.html`) is the public education and trust landing page.
+2. `/map` (`web/map.html`) contains location selection, map controls, results, report preview/download, and unified history.
+3. `/methodology` (`web/methodology.html`) explains model definitions and limitations.
+4. `/data-sources`, `/limitations`, `/about`, `/privacy`, and `/offline` use the shared `web/info.html` shell with route-specific content.
 
 The history panel combines server history with a small browser-local recent-assessment cache. It has no user ownership or role filtering.
 
@@ -225,7 +227,7 @@ The suite uses Python `unittest`; it does not depend on a browser-testing framew
 | Test module | Implemented evidence |
 | --- | --- |
 | `tests/test_frontend_contract.py` | Only approved HTML pages, required workflow control IDs, approved API references, visible disclaimer/demo/missing-data language, and JavaScript syntax when Node is available |
-| `tests/test_fuzzy.py` | Membership boundaries, bounded/explainable complete result, missing-input behavior, 12 evaluated rules, category span, and rejection of threshold gaps |
+| `tests/test_fuzzy.py` | Membership boundaries, bounded/explainable complete result, missing-input behavior, 27 generated rules, monotonicity, category span, and rejection of threshold gaps |
 | `tests/test_geometry.py` | Polygon/hole/edge behavior, line/geometry-collection context, in-memory bounding box/distance helper, and invalid coordinate rejection |
 | `tests/test_http_server.py` | Unified page over HTTP, assessment-to-PDF workflow, response security headers, and missing admin endpoint |
 | `tests/test_importer.py` | Fraction/provenance storage, out-of-range rejection/error record, EPSG:3857 and explicit projected-CRS behavior, and fixture isolation |
@@ -237,7 +239,7 @@ The suite uses Python `unittest`; it does not depend on a browser-testing framew
 | `tests/test_ulap_providers.py` | Flood/liquefaction extraction, zero/conflicting features, missing ground shaking, Basey/barangay identification, and assessment gate |
 | `tests/test_ulap_application.py` | Normalized source response, granular/coarse missing-state persistence, provenance, and report content |
 | `tests/test_ulap_live.py` | Opt-in service metadata, Basey boundary/identification, point-query, and no-substitution checks |
-| `tests/test_workflow.py` | Spatial identification, official-boundary preference, complete/incomplete assessment persistence, outside rejection, explanation, complete/incomplete PDFs, pagination validation, report records, and non-user-scoped history |
+| `tests/test_workflow.py` | Spatial identification, official-boundary preference, complete/incomplete assessment persistence, outside rejection, explanation, complete/incomplete PDFs, private-token access, report records, and disabled shared history |
 
 These tests establish core calculation, persistence, HTTP, import, static frontend-contract, and strict-scope behavior. They do not simulate a full browser. The following remain manual acceptance checks:
 
@@ -260,7 +262,7 @@ network integration tests must be opt-in with `LIVE_ULAP_TESTS=true`.
 
 ## 5. Phase-by-phase implementation record
 
-### Phase 1 — Source audit and versioned configuration
+### Phase 1 â€” Source audit and versioned configuration
 
 Files:
 
@@ -287,7 +289,7 @@ service/layer pairs returned verified metadata; ground shaking returned
 The smoke script therefore reached its intentional required-source failure
 exit (`2` in the script contract).
 
-### Phase 2 — ArcGIS client, validation, and providers
+### Phase 2 â€” ArcGIS client, validation, and providers
 
 Files:
 
@@ -321,7 +323,7 @@ domains, cache/retries, pagination, point and extent queries, overlap/gap
 behavior, source preservation, and score blocking. All five opt-in live tests
 passed on 2026-07-23.
 
-### Phase 3 — Runtime API and unified Web-GIS integration
+### Phase 3 â€” Runtime API and unified Web-GIS integration
 
 Files:
 
@@ -356,7 +358,7 @@ Result on 2026-07-23: 78 tests ran; 73 passed and five network tests were
 skipped by default as designed. The separate opt-in run passed all five live
 tests.
 
-### Phase 4 — Import boundary and fixture isolation
+### Phase 4 â€” Import boundary and fixture isolation
 
 Files:
 
@@ -371,7 +373,7 @@ when confirmed by the operator, but the supplied file remains blocked from
 operational use until its issuer/CRS/identifier differences are resolved.
 Importer tests are part of the 78-test default run.
 
-### Phase 5 — Method, sources, limits, and handoff documentation
+### Phase 5 â€” Method, sources, limits, and handoff documentation
 
 Files:
 

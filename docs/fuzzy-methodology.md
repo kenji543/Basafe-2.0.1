@@ -31,18 +31,18 @@ Any change to normalization semantics, membership parameters, rules, weights, ou
 
 ### 2.1 Initial demonstration model
 
-The prototype model is stored at `config/fuzzy_model.json` with version `0.4.0-demo`. It defines:
+The prototype model is stored at `config/fuzzy_model.json` with version `0.5.1-demo`. It defines:
 
-- three required hazard inputs—flood, liquefaction, and ground shaking—on a
-  model input domain from 0–100;
+- three required hazard inputsâ€”flood, liquefaction, and ground shakingâ€”on a
+  model input domain from 0â€“100;
 - exact, separate demonstration transformations for verified live flood
   `fscode` and liquefaction `lccode` values;
 - no ground-shaking transformation until a verified source exists;
 - low, moderate, and high membership functions for each input;
-- 12 weighted Mamdani rules using configured minimum/maximum evaluation;
+- 27 generated monotonic Mamdani rules covering every three-term input combination;
 - an output universe sampled at each integer from 1 through 100;
 - centroid defuzzification; and
-- four output categories: Low (1–25), Moderate (26–50), High (51–75), and Very High (76–100).
+- four output categories: Low (1â€“25), Moderate (26â€“50), High (51â€“75), and Very High (76â€“100).
 
 Historical incidents and CLUP references are context only and are not numerical inputs in this model version.
 
@@ -64,12 +64,12 @@ The approved input variables are:
 
 Each live input record retains the raw source code, unchanged official label,
 complete source attributes, and a separate GeoSafe-FIS `normalized_value` on
-the model's 0–100 domain. Version `0.4.0-demo` defines exact-code lookups:
+the model's 0â€“100 domain. Version `0.5.1-demo` defines exact-code lookups:
 
 | Source field | Code-to-model values |
 | --- | --- |
-| Flood `fscode` | `01 → 20`, `02 → 50`, `03 → 75`, `04 → 95` |
-| Liquefaction `lccode` | `01 → 50`, `02 → 25`, `03 → 50`, `04 → 80`, `05 → 15`, `06 → 55`, `07 → 90` |
+| Flood `fscode` | `01 â†’ 20`, `02 â†’ 50`, `03 â†’ 75`, `04 â†’ 95` |
+| Liquefaction `lccode` | `01 â†’ 50`, `02 â†’ 25`, `03 â†’ 50`, `04 â†’ 80`, `05 â†’ 15`, `06 â†’ 55`, `07 â†’ 90` |
 | Ground shaking | No mapping; required source unavailable |
 
 These are GeoSafe-FIS demonstration transformations, not official numerical
@@ -78,7 +78,7 @@ individually because their labels span different classification families and
 their identifiers do not form a simple severity sequence.
 
 Authorized imported features retain the compatibility contract
-`normalized_value = normalized_fraction × 100`. A textual imported
+`normalized_value = normalized_fraction Ã— 100`. A textual imported
 classification without an approved fraction remains missing. The live and
 imported transformation paths must never be mixed without recording the
 source, mapping method, and model version. Exact tables and examples are in
@@ -149,7 +149,7 @@ Every assessment exposes the membership degree for every configured linguistic c
 
 ### 6.1 Configured membership functions
 
-Version `0.4.0-demo` contains these input sets:
+Version `0.5.1-demo` contains these input sets:
 
 | Input | Low | Moderate | High |
 | --- | --- | --- | --- |
@@ -157,14 +157,15 @@ Version `0.4.0-demo` contains these input sets:
 | Liquefaction | trapezoid `(0, 0, 20, 45)` | triangle `(25, 50, 75)` | trapezoid `(55, 80, 100, 100)` |
 | Ground shaking | trapezoid `(0, 0, 25, 45)` | triangle `(25, 50, 75)` | trapezoid `(55, 75, 100, 100)` |
 
-Its 1–100 output universe contains:
+Its 0â€“100 output universe contains:
 
 | Output term | Membership function |
 | --- | --- |
-| Low | trapezoid `(1, 1, 18, 35)` |
-| Moderate | triangle `(20, 43, 60)` |
-| High | triangle `(45, 67, 82)` |
-| Very High | trapezoid `(70, 86, 100, 100)` |
+| Very Low | trapezoid `(0, 0, 10, 25)` |
+| Low | triangle `(15, 30, 45)` |
+| Moderate | triangle `(35, 50, 65)` |
+| High | triangle `(55, 70, 85)` |
+| Very High | trapezoid `(75, 90, 100, 100)` |
 
 These breakpoints are implementation documentation for the demonstration model, not validated hazard-science thresholds.
 
@@ -193,22 +194,17 @@ These operators are configuration/version metadata, not hidden assumptions.
 
 ### 7.1 Configured rule catalogue
 
-Version `0.4.0-demo` evaluates all 12 rules below. `ALL` uses the minimum membership and `ANY` uses the maximum. The resulting antecedent strength is multiplied by the listed weight before output implication.
+Version `0.5.1-demo` generates all 27 combinations of low, moderate, and high across the three required inputs. Each rule uses `ALL`/minimum and weight `1.00`. The consequent is selected by the sum of the antecedent ordinals (`low=0`, `moderate=1`, `high=2`):
 
-| ID | Antecedent | Consequent | Weight |
-| --- | --- | --- | ---: |
-| R01 | ALL of flood high, liquefaction high, ground shaking high | Very High | 1.00 |
-| R02 | ALL of flood high, liquefaction high | Very High | 0.95 |
-| R03 | ALL of flood high, ground shaking high | Very High | 0.95 |
-| R04 | ALL of liquefaction high, ground shaking high | Very High | 0.95 |
-| R05 | ANY required hazard high | High | 0.85 |
-| R06 | ALL of flood moderate, liquefaction moderate, ground shaking moderate | Moderate | 1.00 |
-| R07 | ALL of flood moderate, liquefaction moderate | Moderate | 0.85 |
-| R08 | ALL of flood moderate, ground shaking moderate | Moderate | 0.85 |
-| R09 | ALL of liquefaction moderate, ground shaking moderate | Moderate | 0.85 |
-| R10 | ANY required hazard moderate | Moderate | 0.70 |
-| R11 | ALL of flood low, liquefaction low, ground shaking low | Low | 1.00 |
-| R12 | ANY required hazard low | Low | 0.40 |
+| Ordinal sum | Consequent |
+| ---: | --- |
+| 0 | Very Low |
+| 1â€“2 | Low |
+| 3 | Moderate |
+| 4â€“5 | High |
+| 6 | Very High |
+
+This complete grid prevents uncovered linguistic combinations. Its mapping is monotonic: increasing one input term while holding the other two constant cannot lower the consequent. Automated tests also sweep a representative 125-point numeric grid for score reversals.
 
 The full human-readable statements and rationales remain in `config/fuzzy_model.json` and are returned by the methodology/explanation API. In particular, lower-output rules do not override stronger evidence: all clipped consequent sets are aggregated by maximum before centroid calculation.
 
@@ -223,39 +219,40 @@ For each activated rule (effective activation greater than zero), the result rec
 
 Rules must cover the meaningful combinations of the configured input linguistic categories. Model-load validation detects invalid variable/category references, duplicate IDs, invalid operators, unknown consequents, and out-of-range weights. Evaluation raises an error rather than manufacturing a score if a complete input set activates no output.
 
-## 8. Defuzzification and 1–100 score
+## 8. Defuzzification and 0â€“100 score
 
 The default demonstration method is centroid defuzzification over the configured output universe:
 
 \[
-z^* = \frac{\int_{1}^{100} z \,\mu_{aggregated}(z)\,dz}
-{\int_{1}^{100} \mu_{aggregated}(z)\,dz}
+z^* = \frac{\int_{0}^{100} z \,\mu_{aggregated}(z)\,dz}
+{\int_{0}^{100} \mu_{aggregated}(z)\,dz}
 \]
 
-Version `0.4.0-demo` uses a deterministic discrete approximation sampled at every integer from 1 through 100. The unrounded centroid is retained for reproducibility; the displayed score is rounded to the nearest integer and bounded to the approved `1` through `100` range.
+Version `0.5.1-demo` uses a deterministic discrete approximation sampled at every integer from 0 through 100. The unrounded centroid is retained for reproducibility; the displayed score is rounded to the nearest integer and bounded to the configured `0` through `100` range.
 
-If the output configuration uses a different internal domain, it is linearly normalized to 1–100:
+The configured output universe is already 0â€“100, so no additional score conversion is applied.
 
 \[
-score = 1 + 99 \times \frac{z^*-z_{min}}{z_{max}-z_{min}}
+score = z^*
 \]
 
 The model config states whether this conversion applies. A zero aggregated-area denominator raises a model-configuration error; it is never converted to score 1.
 
 ## 9. Descriptive categories
 
-Version `0.4.0-demo` defines:
+Version `0.5.1-demo` defines:
 
 | Displayed score | Category |
 | --- | --- |
-| 1–25 | Low |
-| 26–50 | Moderate |
-| 51–75 | High |
-| 76–100 | Very High |
+| 0â€“20 | Very Low |
+| 21â€“40 | Low |
+| 41â€“60 | Moderate |
+| 61â€“80 | High |
+| 81â€“100 | Very High |
 
 The validator requires:
 
-- complete, non-overlapping coverage of scores 1–100;
+- complete, non-overlapping coverage of scores 0â€“100;
 - unambiguous boundary behavior;
 - an ordered severity meaning; and
 - a display label and cautious interpretation for every category.
@@ -266,10 +263,10 @@ Category assignment occurs after score rounding according to the documented conf
 
 A user-facing explanation should read in this order:
 
-1. **Source input:** “Flood classification: [source value], from [dataset/version/date/status].”
-2. **Normalization:** “The imported fraction is [fraction]; model [version] multiplies it by 100 to obtain [normalized value].”
-3. **Memberships:** “At that value, membership is [degree] in [label], …”
-4. **Rule contribution:** “Rule [ID] activated at [antecedent strength]; after weight [weight], effective activation is [strength].”
+1. **Source input:** â€œFlood classification: [source value], from [dataset/version/date/status].â€
+2. **Normalization:** â€œThe imported fraction is [fraction]; model [version] multiplies it by 100 to obtain [normalized value].â€
+3. **Memberships:** â€œAt that value, membership is [degree] in [label], â€¦â€
+4. **Rule contribution:** â€œRule [ID] activated at [antecedent strength]; after weight [weight], effective activation is [strength].â€
 5. **Aggregation and score:** identify the configured implication, aggregation, and defuzzification methods and show the unrounded/rounded result as appropriate.
 6. **Category:** give the threshold band that contains the score.
 7. **Context and caution:** list quality/missing-data notices, incidents and CLUP context, recommendations, validation status, and disclaimer.
@@ -303,7 +300,7 @@ Location-matched incident output states whether a record is:
 - covered by an incident geometry; or
 - associated with the identified barangay.
 
-The absence of a matching historical record is reported as “no matching record is available in the loaded dataset,” not “no incident occurred.”
+The absence of a matching historical record is reported as â€œno matching record is available in the loaded dataset,â€ not â€œno incident occurred.â€
 
 CLUP output states whether a reference geometry covers the point, is associated with the barangay, or is municipality-wide. References include available document/section and source metadata. GeoSafe-FIS does not decide legal conformity, land-use approval, structural suitability, or permitting status.
 
@@ -326,7 +323,7 @@ Model validation has two distinct layers.
 
 ### Current software verification
 
-The current `unittest` suite verifies triangular interpolation, trapezoidal shoulders, a complete bounded/explainable result with 12 evaluated rules, category span for all-low/all-high inputs, and missing-required-input behavior. Workflow tests verify that normalized values, memberships, activated rules, score, and model version survive in the saved snapshot and explanation response.
+The current `unittest` suite verifies triangular interpolation, trapezoidal shoulders, a complete bounded/explainable result with all 27 evaluated rules, category span for all-low/all-high inputs, monotonicity on a representative grid, and missing-required-input behavior. Workflow tests verify that normalized values, memberships, activated rules, score, and model version survive in the saved snapshot and explanation response.
 
 The model loader also validates configuration structure, domains, membership parameters, rule references/weights, inference settings, and output thresholds before serving assessments.
 

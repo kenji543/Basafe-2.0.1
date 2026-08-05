@@ -11,7 +11,7 @@ from typing import Any
 from ..geometry import geometry_bbox
 from .arcgis_client import ArcGISClient
 from .boundary_provider import BoundaryProvider
-from .errors import UlapError
+from .errors import UlapError, UlapInvalidResponseError
 from .hazard_provider import HazardProvider
 from .metadata_validator import MetadataValidator
 from .models import HazardResult, Status, ValidationResult
@@ -33,6 +33,138 @@ def _now_iso() -> str:
 
 def _status_value(value: Status | str) -> str:
     return value.value if isinstance(value, Status) else str(value)
+
+
+def _ring_signed_area(ring: list[list[float]]) -> float:
+    return sum(
+        (start[0] * end[1]) - (end[0] * start[1])
+        for start, end in zip(ring, ring[1:])
+    ) / 2
+
+
+def _point_in_ring(point: list[float], ring: list[list[float]]) -> bool:
+    x, y = point
+    inside = False
+    previous = ring[-1]
+    for current in ring:
+        x1, y1 = previous
+        x2, y2 = current
+        if (y1 > y) != (y2 > y):
+            crossing = (x2 - x1) * (y - y1) / (y2 - y1) + x1
+            if x < crossing:
+                inside = not inside
+        previous = current
+    return inside
+
+
+def _esri_polygon_to_geojson(value: Any, *, endpoint: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or not isinstance(value.get("rings"), list):
+        raise UlapInvalidResponseError(
+            endpoint, "ArcGIS identify result contains no polygon rings."
+        )
+    rings: list[list[list[float]]] = []
+    for raw_ring in value["rings"]:
+        if not isinstance(raw_ring, list) or len(raw_ring) < 4:
+            raise UlapInvalidResponseError(
+                endpoint, "ArcGIS identify returned an invalid polygon ring."
+            )
+        try:
+            ring = [[float(point[0]), float(point[1])] for point in raw_ring]
+        except (TypeError, ValueError, IndexError) as exc:
+            raise UlapInvalidResponseError(
+                endpoint, "ArcGIS identify returned invalid ring coordinates."
+            ) from exc
+        if ring[0] != ring[-1]:
+            ring.append(list(ring[0]))
+        rings.append(ring)
+
+    # Esri JSON exterior rings are clockwise and holes are counter-clockwise.
+    # Convert multiple exterior rings to a valid GeoJSON MultiPolygon and
+    # attach each hole to the containing exterior ring.
+    exteriors = [ring for ring in rings if _ring_signed_area(ring) < 0]
+    holes = [ring for ring in rings if _ring_signed_area(ring) >= 0]
+    if not exteriors:
+        exterior = max(rings, key=lambda ring: abs(_ring_signed_area(ring)))
+        exteriors = [exterior]
+        holes = [ring for ring in rings if ring is not exterior]
+    polygons: list[list[list[list[float]]]] = [[exterior] for exterior in exteriors]
+    for hole in holes:
+        candidates = [
+            index
+            for index, exterior in enumerate(exteriors)
+            if _point_in_ring(hole[0], exterior)
+        ]
+        if not candidates:
+            # Very small exterior rings can flip orientation after the
+            # server-side maxAllowableOffset simplification.  A ring that is
+            # not contained by any exterior cannot be a hole, so retain it as
+            # a separate polygon instead of discarding valid source geometry.
+            exteriors.append(hole)
+            polygons.append([hole])
+            continue
+        target = min(
+            candidates,
+            key=lambda index: abs(_ring_signed_area(exteriors[index])),
+        )
+        polygons[target].append(hole)
+    if len(polygons) == 1:
+        return {"type": "Polygon", "coordinates": polygons[0]}
+    return {"type": "MultiPolygon", "coordinates": polygons}
+
+
+def _identified_hazard_features(
+    payload: dict[str, Any],
+    *,
+    source_url: str,
+    layer_id: int,
+    field_name: str,
+    domain: dict[str, str],
+) -> list[dict[str, Any]]:
+    results = payload.get("results")
+    if not isinstance(results, list):
+        raise UlapInvalidResponseError(
+            source_url, "ArcGIS identify response does not contain a results array."
+        )
+    reverse_domain = {label: code for code, label in domain.items()}
+    if not reverse_domain:
+        raise UlapInvalidResponseError(
+            source_url,
+            f"The classification domain for '{field_name}' is unavailable.",
+        )
+    features: list[dict[str, Any]] = []
+    for item in results:
+        if not isinstance(item, dict) or item.get("layerId") != layer_id:
+            continue
+        official_label = str(item.get("value") or "").strip()
+        raw_code = reverse_domain.get(official_label)
+        if raw_code is None:
+            raise UlapInvalidResponseError(
+                source_url,
+                f"ArcGIS identify returned unmapped classification {official_label!r}.",
+            )
+        attributes = item.get("attributes")
+        if not isinstance(attributes, dict):
+            raise UlapInvalidResponseError(
+                source_url, "ArcGIS identify returned invalid feature attributes."
+            )
+        properties = dict(attributes)
+        properties.update(
+            {
+                field_name: raw_code,
+                "officialLabel": official_label,
+                "retrievalMethod": "MapServer identify",
+            }
+        )
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": _esri_polygon_to_geojson(
+                    item.get("geometry"), endpoint=source_url
+                ),
+                "properties": properties,
+            }
+        )
+    return features
 
 
 class UlapIntegration:
@@ -275,6 +407,7 @@ class UlapIntegration:
             domains = extract_coded_domains(metadata)
             field_name = definition.classification_field or ""
             domain = domains.get(field_name, {})
+            retrieval_method = "query"
             result = self.client.query_all(
                 definition.layer_url,
                 out_fields=definition.preserve_fields or "*",
@@ -284,21 +417,60 @@ class UlapIntegration:
                 geometry=envelope,
                 geometry_type="esriGeometryEnvelope",
                 input_spatial_reference=4326,
+                geometry_precision=6,
+                max_allowable_offset=0.00001,
             )
-        except UlapError as exc:
-            return self._empty_collection(
-                hazard, exc.status, exc.message, exc.endpoint or definition.layer_url
-            )
-        rendered_features: list[dict[str, Any]] = []
-        for feature in result.features:
-            rendered = dict(feature)
-            properties = dict(rendered.get("properties") or {})
-            raw_code = properties.get(field_name)
-            properties["officialLabel"] = (
-                domain.get(str(raw_code)) if raw_code is not None else None
-            )
-            rendered["properties"] = properties
-            rendered_features.append(rendered)
+            rendered_features: list[dict[str, Any]] = []
+            for feature in result.features:
+                rendered = dict(feature)
+                properties = dict(rendered.get("properties") or {})
+                raw_code = properties.get(field_name)
+                properties["officialLabel"] = (
+                    domain.get(str(raw_code)) if raw_code is not None else None
+                )
+                rendered["properties"] = properties
+                rendered_features.append(rendered)
+            retrieved_at = result.retrieved_at
+            pages = result.pages
+            cache_entries = result.cache_entries
+        except UlapError as query_error:
+            # Both MGB Flood and PHIVOLCS Ground Shaking currently advertise
+            # Query while returning ArcGIS 400 "capability not supported" for
+            # every layer query.  MapServer identify remains operational and
+            # returns complete geometries for an envelope, so use that official
+            # operation as the controlled synchronization fallback.
+            try:
+                if not definition.service_url or definition.layer_id is None:
+                    raise query_error
+                identified = self.client.identify_features(
+                    definition.service_url,
+                    layer_id=definition.layer_id,
+                    geometry=f"{xmin},{ymin},{xmax},{ymax}",
+                    geometry_type="esriGeometryEnvelope",
+                    map_extent=(xmin, ymin, xmax, ymax),
+                    return_geometry=True,
+                )
+                rendered_features = _identified_hazard_features(
+                    identified.data,
+                    source_url=definition.service_url,
+                    layer_id=definition.layer_id,
+                    field_name=field_name,
+                    domain=domain,
+                )
+                retrieved_at = identified.responded_at
+                pages = 1
+                cache_entries = (identified.cache,)
+                retrieval_method = "identify_fallback"
+            except UlapError as identify_error:
+                return self._empty_collection(
+                    hazard,
+                    identify_error.status,
+                    (
+                        f"Layer query failed ({query_error.message}); MapServer "
+                        f"identify fallback also failed ({identify_error.message})."
+                    ),
+                    identify_error.endpoint or definition.layer_url,
+                )
         return {
             "type": "FeatureCollection",
             "features": rendered_features,
@@ -311,13 +483,22 @@ class UlapIntegration:
                 "classificationDomain": domain,
                 "attribution": extract_attribution(metadata) or definition.attribution,
                 "spatialReference": extract_spatial_reference(metadata),
-                "retrievedAt": result.retrieved_at,
-                "pages": result.pages,
-                "cache": [item.to_dict() for item in result.cache_entries],
+                "retrievedAt": retrieved_at,
+                "pages": pages,
+                "cache": [item.to_dict() for item in cache_entries],
                 "queryExtent": [xmin, ymin, xmax, ymax],
+                "retrievalMethod": retrieval_method,
             },
             "notices": (
-                []
+                (
+                    [
+                        "The layer rejected its advertised Query operation; the "
+                        "official MapServer identify operation supplied these "
+                        "features instead."
+                    ]
+                    if retrieval_method == "identify_fallback"
+                    else []
+                )
                 if rendered_features
                 else [
                     "The verified layer returned no features intersecting the "

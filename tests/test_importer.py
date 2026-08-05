@@ -14,7 +14,12 @@ SCRIPTS_ROOT = PROJECT_ROOT / "scripts"
 if str(SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ROOT))
 
-from import_dataset import ImportFailure, ImportOptions, import_dataset  # noqa: E402
+from import_dataset import (  # noqa: E402
+    ImportFailure,
+    ImportOptions,
+    _repair_geometry_native,
+    import_dataset,
+)
 
 
 def feature_collection(
@@ -60,6 +65,36 @@ class ImporterTests(unittest.TestCase):
         path = self.root / name
         path.write_text(json.dumps(payload), encoding="utf-8")
         return path
+
+    def test_degenerate_interior_ring_is_removed_but_exterior_is_preserved(self) -> None:
+        repairs: list[str] = []
+        repaired = _repair_geometry_native(
+            {
+                "type": "Polygon",
+                "coordinates": [
+                    [[125.0, 11.0], [125.1, 11.0], [125.1, 11.1], [125.0, 11.0]],
+                    [[125.02, 11.02], [125.02, 11.02], [125.02, 11.02]],
+                ],
+            },
+            repairs,
+        )
+        self.assertEqual(len(repaired["coordinates"]), 1)
+        self.assertIn("removed a degenerate zero-area interior polygon ring", repairs)
+
+    def test_degenerate_multipolygon_part_is_removed(self) -> None:
+        repairs: list[str] = []
+        repaired = _repair_geometry_native(
+            {
+                "type": "MultiPolygon",
+                "coordinates": [
+                    [[[125.0, 11.0], [125.1, 11.0], [125.1, 11.1], [125.0, 11.0]]],
+                    [[[125.02, 11.02], [125.02, 11.02], [125.02, 11.02], [125.02, 11.02]]],
+                ],
+            },
+            repairs,
+        )
+        self.assertEqual(len(repaired["coordinates"]), 1)
+        self.assertIn("removed a degenerate zero-area polygon part", repairs)
 
     def test_hazard_import_validates_fraction_and_records_provenance(self) -> None:
         source = self._write_geojson(

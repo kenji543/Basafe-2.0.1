@@ -4,7 +4,7 @@
 
 GeoSafe-FIS is a focused Web-GIS decision-support prototype for screening locations in Basey, Samar. It combines available flood, liquefaction, and ground-shaking information with verified municipal and barangay sources, historical incident context, and relevant Comprehensive Land Use Plan (CLUP) references. It then runs a documented fuzzy-inference model and explains the resulting vulnerability screening score.
 
-This document describes application package version `0.4.0` and demonstration model version `0.4.0-demo`.
+This document describes application package version `0.5.0` and demonstration model version `0.5.1-demo`.
 
 Every feature must directly support at least one of the following:
 
@@ -43,7 +43,7 @@ The target implementation intentionally uses a small number of components:
 
 | Component | Responsibility |
 | --- | --- |
-| Static browser application | Unified Leaflet interface at `/`, including search/coordinate/map-click selection, layers, legend, assessment results, report preview, and unified assessment history; methodology/limitations at `/methodology` |
+| Static browser application | Public education landing page at `/`, unified Leaflet assessment interface at `/map`, device-local recent history, and public methodology/source/limitations pages |
 | Python standard-library JSON API | Spatial lookup orchestration, dataset retrieval, assessment execution, explanation payloads, report generation, and supporting-information endpoints |
 | Backend ULAP integration | Allowlisted ArcGIS REST client, live metadata validation, PSA Basey/barangay identification, hazard point queries, typed source results, retries, and TTL caching |
 | SQLite database | Approved spatial records, provenance, fuzzy configuration records where seeded, assessments, explanations, and generated-report metadata |
@@ -61,9 +61,9 @@ The static application exposes only these project pages or panels:
 2. **Assessment Results**: selected point, barangay, raw and normalized hazard values, memberships, activated rules and strengths, score/category or incomplete state, incident and CLUP context, provenance, quality and missing-data notices, cautious recommendations, and disclaimer.
 3. **Assessment Report Preview**: the exact substantive content intended for the PDF and a report-generation action.
 4. **Methodology and Limitations**: model version, variables, membership functions, rules, source catalogue, limitations, validation status, and disclaimer.
-5. **Assessment History panel**: previously generated SQLite assessments available for review and report download. History is not associated with accounts or roles.
+5. **Assessment History panel**: private-token references retained in the current browser for review and report download. The backend does not publish a shared history listing.
 
-The implementation uses two HTML documents: `index.html` contains the map, results, preview, and history panels; `methodology.html` contains the methodology and limitations view. No page is hidden or varied according to user type.
+The implementation uses four HTML documents: `index.html` is the public landing page, `map.html` contains the map/results/report workflow, `methodology.html` documents the model, and `info.html` renders the source, limitations, about, privacy, and offline routes. No page is varied according to user type.
 
 ## 5. Primary workflow
 
@@ -188,7 +188,7 @@ The engine loads a versioned configuration and validates it before use. The conf
 - model version; and
 - validation notes.
 
-The current configuration is `config/fuzzy_model.json`, version `0.4.0-demo`. It defines exact demonstration mappings from verified live `fscode` and `lccode` values into separate `0–100` model inputs, retains the imported-fraction compatibility path, and leaves ground-shaking source/mappings empty. It defines three required inputs, low/moderate/high input memberships, 12 weighted Mamdani rules using minimum/maximum operators, centroid sampling across output points 1–100, and the configured Low/Moderate/High/Very High score bands. It forbids inferring a missing numeric value from a label, unknown code, empty query, or substitute hazard. Historical incidents and CLUP references remain non-numeric context.
+The current configuration is `config/fuzzy_model.json`, version `0.5.1-demo`. It defines exact demonstration mappings from verified live `fscode` and `lccode` values into separate `0–100` model inputs, retains the imported-fraction compatibility path, and leaves ground-shaking source/mappings empty. It defines three required inputs, low/moderate/high input memberships, a generated complete 27-rule monotonic Mamdani grid, centroid sampling across output points 0–100, entropy-weight configuration with an explicitly labelled equal-weight research fallback, and the configured Very Low/Low/Moderate/High/Very High score bands. It forbids inferring a missing numeric value from a label, unknown code, empty query, or substitute hazard. Historical incidents and CLUP references remain non-numeric context.
 
 The assessment persists all normalized inputs, membership values, rule activations, and the exact model/configuration version. This provides explainability without a model-management interface. The demonstration model must state that its thresholds, rules, and recommendations require validation by qualified domain experts.
 

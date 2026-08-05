@@ -575,9 +575,21 @@ def _repair_geometry_native(
     else:  # MultiPolygon
         if not isinstance(coordinates, list) or not coordinates:
             raise ValueError("MultiPolygon must contain at least one polygon")
-        cleaned_coordinates = [
-            _repair_polygon_coordinates(polygon, repairs) for polygon in coordinates
-        ]
+        cleaned_coordinates = []
+        for polygon in coordinates:
+            try:
+                cleaned_coordinates.append(
+                    _repair_polygon_coordinates(polygon, repairs)
+                )
+            except ValueError as exc:
+                if str(exc) not in {
+                    "polygon rings require at least three distinct positions",
+                    "polygon ring has zero area",
+                }:
+                    raise
+                repairs.append("removed a degenerate zero-area polygon part")
+        if not cleaned_coordinates:
+            raise ValueError("MultiPolygon has no non-degenerate polygon parts")
     return {"type": geometry_type, "coordinates": cleaned_coordinates}
 
 
@@ -587,7 +599,7 @@ def _repair_polygon_coordinates(
     if not isinstance(coordinates, list) or not coordinates:
         raise ValueError("Polygon must contain at least one linear ring")
     polygon: list[list[list[Any]]] = []
-    for raw_ring in coordinates:
+    for ring_index, raw_ring in enumerate(coordinates):
         ring, changed = _deduplicate_positions(raw_ring or [])
         if changed:
             repairs.append("removed consecutive duplicate polygon coordinates")
@@ -596,11 +608,17 @@ def _repair_polygon_coordinates(
             repairs.append("closed an unclosed polygon ring")
         distinct_xy = {(position[0], position[1]) for position in ring[:-1]}
         if len(ring) < 4 or len(distinct_xy) < 3:
+            if ring_index > 0:
+                repairs.append("removed a degenerate zero-area interior polygon ring")
+                continue
             raise ValueError("polygon rings require at least three distinct positions")
         signed_area = 0.0
         for first, second in zip(ring, ring[1:]):
             signed_area += first[0] * second[1] - second[0] * first[1]
         if abs(signed_area) < 1e-15:
+            if ring_index > 0:
+                repairs.append("removed a degenerate zero-area interior polygon ring")
+                continue
             raise ValueError("polygon ring has zero area")
         polygon.append(ring)
     return polygon

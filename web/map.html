@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Select a location in Basey, inspect verified hazard sources, and generate an explainable preliminary screening report.">
+  <meta name="theme-color" content="#073b4c">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon-192.png">
+  <title>Assess a Location | GeoSafe-FIS</title>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="preconnect" href="https://tile.openstreetmap.org">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/styles.css?v=0.5.14">
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script defer src="/app.js?v=0.5.13"></script>
+  <script defer src="/pwa.js?v=0.5.11"></script>
+</head>
+<body class="map-app" data-api-base="/api/v1">
+  <a class="skip-link" href="#assessment-workspace">Skip to assessment workspace</a>
+
+  <header class="app-header">
+    <a class="brand" href="/" aria-label="GeoSafe-FIS public home">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 40 40" role="img">
+          <path d="M20 3.5c-7 0-12.7 5.5-12.7 12.4 0 9.2 12.7 20.4 12.7 20.4s12.7-11.2 12.7-20.4C32.7 9 27 3.5 20 3.5Z"/>
+          <path class="brand-wave" d="M11.7 17.3c2.2 0 2.2-1.8 4.4-1.8s2.2 1.8 4.4 1.8 2.2-1.8 4.4-1.8 2.2 1.8 4.4 1.8"/>
+          <circle class="brand-dot" cx="20" cy="11.5" r="2.2"/>
+        </svg>
+      </span>
+      <span>
+        <strong>GeoSafe-FIS</strong>
+        <small>Public multi-hazard screening</small>
+      </span>
+    </a>
+
+    <nav class="primary-nav" aria-label="Primary navigation">
+      <a href="/">Home</a>
+      <a class="active" href="/map" aria-current="page">Map</a>
+      <a href="/data-sources">Sources</a>
+      <a href="/methodology">Methodology</a>
+    </nav>
+
+    <div id="api-status" class="system-status is-checking" role="status" aria-live="polite">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span>Checking local hazard snapshots</span>
+    </div>
+  </header>
+
+  <main id="assessment-workspace" class="workspace">
+    <aside id="assessment-controls" class="control-rail" aria-label="Location and map controls">
+      <div class="mobile-sheet-handle">
+        <span aria-hidden="true"></span>
+        <strong>Map layers and details</strong>
+        <button id="close-controls" class="icon-button" type="button" aria-label="Close location controls">×</button>
+      </div>
+      <section class="panel selection-panel" aria-labelledby="selection-heading">
+        <div class="section-title-row">
+          <h2 id="selection-heading">Location</h2>
+          <span id="inside-badge" class="badge neutral">No point</span>
+        </div>
+        <div id="selection-summary" class="selection-summary" aria-live="polite">
+          <p>Search above or click anywhere inside Basey to place a pin.</p>
+        </div>
+        <div id="ulap-point-status" class="point-source-status" aria-live="polite">
+          <p class="muted">Local hazard snapshots will be checked after the point is confirmed inside Basey.</p>
+        </div>
+        <button id="run-assessment" class="button primary full-width" type="button" disabled>
+          Run assessment
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </section>
+
+      <details class="panel source-health-panel">
+        <summary>
+          <span>Hazard data snapshots</span>
+          <span id="ulap-health-badge" class="badge neutral">Checking</span>
+        </summary>
+        <div class="source-health-body">
+          <div id="ulap-health-summary" class="service-health-summary" role="status" aria-live="polite">
+            <span class="spinner" aria-hidden="true"></span>
+            Checking locally activated hazard datasets…
+          </div>
+          <div id="ulap-service-list" class="service-list"></div>
+          <p class="source-routing-note">Assessments read validated local snapshots. GeoRisk synchronization is a separate maintenance operation.</p>
+        </div>
+      </details>
+
+      <details class="panel layers-panel">
+        <summary>
+          <span>Map layers</span>
+          <span class="summary-hint">Show or hide</span>
+        </summary>
+        <div class="layer-list">
+          <fieldset id="basemap-controls" class="basemap-controls">
+            <legend>Base map</legend>
+            <label class="basemap-row">
+              <span><i class="basemap-preview streets" aria-hidden="true"></i><span><strong>Streets</strong><small>Roads and place labels</small></span></span>
+              <input type="radio" name="basemap" value="streets">
+            </label>
+            <label class="basemap-row">
+              <span><i class="basemap-preview satellite" aria-hidden="true"></i><span><strong>Satellite</strong><small>Aerial imagery</small></span></span>
+              <input type="radio" name="basemap" value="satellite" checked>
+            </label>
+            <label class="basemap-row">
+              <span><i class="basemap-preview terrain" aria-hidden="true"></i><span><strong>Terrain</strong><small>Topography and landform context</small></span></span>
+              <input type="radio" name="basemap" value="terrain">
+            </label>
+          </fieldset>
+          <p class="layer-section-label">Reference overlays</p>
+          <label class="switch-row">
+            <span><i class="swatch boundary"></i>Municipal boundary</span>
+            <input id="toggle-boundary" type="checkbox" checked>
+          </label>
+          <label class="switch-row">
+            <span><i class="swatch barangay"></i>Barangay boundaries</span>
+            <input id="toggle-barangays" type="checkbox" checked>
+          </label>
+          <p class="layer-section-label hazard-heading">Hazard overlays · Local snapshots</p>
+          <div id="hazard-layer-controls" class="hazard-layer-controls">
+            <p class="loading-line">Loading local hazard snapshot metadata…</p>
+          </div>
+        </div>
+        <div id="map-legend" class="legend" aria-label="Map legend">
+          <h3>Legend</h3>
+          <p class="muted">An overlay is enabled only when the backend supplies a safe Basey-scoped display endpoint.</p>
+        </div>
+      </details>
+
+      <details class="panel history-panel">
+        <summary>
+          <span>Recent assessments</span>
+          <span class="summary-hint">This device only</span>
+        </summary>
+        <div id="history-list" class="history-list">
+          <p class="muted">No assessments loaded yet.</p>
+        </div>
+      </details>
+    </aside>
+
+    <section class="map-stage" aria-labelledby="map-heading">
+      <h2 id="map-heading" class="visually-hidden">Interactive Basey hazard map</h2>
+      <div id="map" class="map" tabindex="0"
+        aria-label="Interactive map. Click a point to select it for assessment."></div>
+
+      <div class="map-search-overlay" aria-label="Find a Basey location">
+        <form id="search-form" class="search-form" role="search">
+          <label class="visually-hidden" for="location-search">Search for a place in Basey</label>
+          <div class="input-action">
+            <svg class="map-search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3m2.3-5.2A7.5 7.5 0 1 1 4 11.5a7.5 7.5 0 0 1 15 0Z"/></svg>
+            <input id="location-search" name="q" type="search" autocomplete="off"
+              placeholder="Search anywhere in Basey" minlength="2">
+            <button class="search-submit" type="submit">Search</button>
+          </div>
+          <div id="search-results" class="search-results" aria-live="polite"></div>
+        </form>
+        <details class="coordinate-picker">
+          <summary>Use coordinates</summary>
+          <form id="coordinate-form" class="coordinate-form">
+            <div>
+              <label for="latitude">Latitude</label>
+              <input id="latitude" name="latitude" type="number" inputmode="decimal"
+                min="-90" max="90" step="any" placeholder="11.2820" required>
+            </div>
+            <div>
+              <label for="longitude">Longitude</label>
+              <input id="longitude" name="longitude" type="number" inputmode="decimal"
+                min="-180" max="180" step="any" placeholder="125.0690" required>
+            </div>
+            <button class="button primary full-width" type="submit">Place pin</button>
+          </form>
+        </details>
+        <p class="map-selection-hint">Or click anywhere inside Basey. Barangay matching is optional.</p>
+      </div>
+
+      <div id="map-loading" class="map-message map-loading" role="status">
+        <span class="spinner" aria-hidden="true"></span>
+        Loading Basey spatial data…
+      </div>
+      <div id="map-notice" class="map-message map-notice" role="status" hidden></div>
+
+      <div class="map-toolbar" aria-label="Map utilities">
+        <button id="open-controls" class="map-tool mobile-only" type="button" aria-controls="assessment-controls" aria-expanded="false">
+          <span>Layers</span>
+        </button>
+        <button id="use-location" class="map-tool" type="button" title="Use current location">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s6-5.4 6-11a6 6 0 0 0-12 0c0 5.6 6 11 6 11Zm0-8.5A2.5 2.5 0 1 1 12 7a2.5 2.5 0 0 1 0 5.5Z"/></svg>
+          <span>My location</span>
+        </button>
+        <button id="fit-basey" class="map-tool" type="button" title="Fit the loaded Basey boundary">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5"/></svg>
+          <span>Fit Basey</span>
+        </button>
+        <button id="clear-selection" class="map-tool" type="button" title="Clear selected point" disabled>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg>
+          <span>Clear pin</span>
+        </button>
+        <button id="reset-map" class="map-tool" type="button" title="Reset map and selection">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6"/></svg>
+          <span>Reset</span>
+        </button>
+      </div>
+
+      <div class="map-footnote">
+        <span id="map-data-state"><strong>Data status:</strong> awaiting service response</span>
+        <span id="basemap-attribution">Basemap: Esri World Imagery</span>
+      </div>
+    </section>
+
+    <aside id="results-panel" class="results-panel" aria-labelledby="results-heading">
+      <div class="results-header">
+        <div>
+          <p class="eyebrow">Explainable screening</p>
+          <h2 id="results-heading">Assessment result</h2>
+        </div>
+        <span id="assessment-status" class="badge neutral">Not started</span>
+      </div>
+
+      <div id="results-empty" class="results-empty">
+        <div class="empty-illustration" aria-hidden="true">
+          <svg viewBox="0 0 160 120">
+            <path d="M18 94 49 63l22 18 31-43 40 56H18Z"/>
+            <path d="M80 12c-13 0-23 10-23 22 0 17 23 37 23 37s23-20 23-37c0-12-10-22-23-22Z"/>
+            <circle cx="80" cy="34" r="7"/>
+          </svg>
+        </div>
+        <h3>Select a Basey location to begin</h3>
+        <p>The result will show hazard evidence, fuzzy memberships, activated rules, context, and data-quality notices.</p>
+        <ol class="mini-steps">
+          <li><span>1</span>Place a pin</li>
+          <li><span>2</span>Confirm location</li>
+          <li><span>3</span>Run assessment</li>
+        </ol>
+      </div>
+
+      <div id="results-loading" class="results-loading" hidden aria-live="polite">
+        <span class="large-spinner" aria-hidden="true"></span>
+        <h3>Evaluating available evidence</h3>
+        <ol class="assessment-progress" aria-label="Assessment progress">
+          <li data-progress-step="location">Validating location</li>
+          <li data-progress-step="layers">Loading hazard layers</li>
+          <li data-progress-step="classifications">Retrieving classifications</li>
+          <li data-progress-step="completeness">Checking data completeness</li>
+          <li data-progress-step="calculation">Calculating screening result</li>
+          <li data-progress-step="explanation">Preparing explanation</li>
+          <li data-progress-step="report">Preparing report</li>
+        </ol>
+        <p>Reading local hazard classifications, incidents, CLUP references, and fuzzy-rule activations…</p>
+      </div>
+
+      <div id="results-content" class="results-content" hidden></div>
+
+      <div id="result-actions" class="result-actions" hidden>
+        <button id="start-new-assessment" class="button ghost" type="button">Start new assessment</button>
+        <button id="preview-report" class="button secondary" type="button">Preview report</button>
+        <button id="download-report" class="button primary" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 21h14"/></svg>
+          Download PDF
+        </button>
+      </div>
+    </aside>
+  </main>
+
+  <button id="mobile-assess" class="button primary mobile-assess" type="button" disabled>Run assessment</button>
+
+  <div id="offline-banner" class="offline-banner" role="status" hidden>
+    You are offline. Previously viewed information may be available, but new hazard data and complete assessments may require an internet connection.
+  </div>
+
+  <footer class="app-footer">
+    <p><strong>Disclaimer:</strong> This report is a preliminary multi-hazard screening output based on selected available data. It does not certify that a location is safe or unsafe and does not replace official hazard, planning, engineering, geological, geotechnical, or regulatory assessment.</p>
+    <a href="/limitations">Read the full limitations and disclaimer</a>
+  </footer>
+
+  <dialog id="report-dialog" class="report-dialog" aria-labelledby="report-title">
+    <div class="dialog-header">
+      <div>
+        <p class="eyebrow">Assessment report</p>
+        <h2 id="report-title">Preview</h2>
+      </div>
+      <button id="close-report" class="icon-button" type="button" aria-label="Close report preview">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg>
+      </button>
+    </div>
+    <div id="report-preview" class="report-preview"></div>
+    <div class="dialog-actions">
+      <button id="print-preview" class="button secondary" type="button">Print preview</button>
+      <button id="download-report-dialog" class="button primary" type="button">Download generated PDF</button>
+    </div>
+  </dialog>
+
+  <div id="toast-region" class="toast-region" aria-live="assertive" aria-atomic="true"></div>
+
+  <noscript>
+    <div class="noscript-notice">GeoSafe-FIS requires JavaScript for map selection and fuzzy assessment. Please enable JavaScript or use the documented API.</div>
+  </noscript>
+</body>
+</html>

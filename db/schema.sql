@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS fuzzy_models (
     name TEXT NOT NULL,
     description TEXT,
     defuzzification_method TEXT NOT NULL,
-    output_min REAL NOT NULL DEFAULT 1.0,
+    output_min REAL NOT NULL DEFAULT 0.0,
     output_max REAL NOT NULL DEFAULT 100.0,
     validation_notes TEXT NOT NULL,
     configuration_json TEXT NOT NULL,
@@ -176,6 +176,7 @@ CREATE TABLE IF NOT EXISTS fuzzy_rules (
 
 CREATE TABLE IF NOT EXISTS assessments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    public_token TEXT NOT NULL UNIQUE,
     model_id INTEGER NOT NULL REFERENCES fuzzy_models(id),
     barangay_id INTEGER REFERENCES barangays(id) ON DELETE SET NULL,
     location_label TEXT,
@@ -247,7 +248,7 @@ CREATE TABLE IF NOT EXISTS assessment_results (
     assessment_id INTEGER NOT NULL UNIQUE
         REFERENCES assessments(id) ON DELETE CASCADE,
     final_score REAL
-        CHECK (final_score IS NULL OR (final_score >= 1.0 AND final_score <= 100.0)),
+        CHECK (final_score IS NULL OR (final_score >= 0.0 AND final_score <= 100.0)),
     category TEXT,
     completeness_status TEXT NOT NULL
         CHECK (completeness_status IN ('complete', 'incomplete')),

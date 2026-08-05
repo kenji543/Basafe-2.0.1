@@ -53,7 +53,7 @@ Supported additional provenance/quality options are:
 - `--source-crs`; and
 - optional `--error-log`.
 
-Marking a dataset `official` records the operator’s explicit declaration. It does not independently authenticate the source or prove fitness for use. The operator must verify the issuing organization, currency, coverage, scale, and allowed use.
+Marking a dataset `official` records the operatorâ€™s explicit declaration. It does not independently authenticate the source or prove fitness for use. The operator must verify the issuing organization, currency, coverage, scale, and allowed use.
 
 The importer stores:
 
@@ -73,7 +73,7 @@ Only `official` and `demonstration` are accepted data classifications. The impor
 Hazard imports use two distinct domains:
 
 1. `normalized_value` in the import file and SQLite is a documented fraction from `0` through `1`.
-2. The assessment service multiplies that fraction by 100 and supplies the resulting `0` through `100` value to model `0.4.0-demo`.
+2. The assessment service multiplies that fraction by 100 and supplies the resulting `0` through `100` value to model `0.5.1-demo`.
 
 For example, an imported fraction of `0.82` is exposed as:
 
@@ -84,7 +84,7 @@ For example, an imported fraction of `0.82` is exposed as:
 }
 ```
 
-The classification text and fraction are separate fields. The importer and model never infer a fraction from labels such as “Low,” “Moderate,” or “High.” Each deployment dataset must document and receive domain-expert validation for its class-to-fraction or measurement-to-fraction mapping.
+The classification text and fraction are separate fields. The importer and model never infer a fraction from labels such as â€œLow,â€ â€œModerate,â€ or â€œHigh.â€ Each deployment dataset must document and receive domain-expert validation for its class-to-fraction or measurement-to-fraction mapping.
 
 This imported-data contract is separate from the live ULAP exact-code
 transformations documented in
@@ -215,7 +215,7 @@ Required attribute checks include:
 
 - nonblank barangay names;
 - nonblank hazard classifications;
-- hazard fractions numeric and within `0–1` when supplied;
+- hazard fractions numeric and within `0â€“1` when supplied;
 - incident type/title and point coordinates; and
 - CLUP reference type/title.
 
@@ -261,8 +261,9 @@ source CRS explicitly and retain the confirmation in source metadata. See
 ## 12. No operational synthetic seed
 
 `config/data_sources.json` has an empty `datasets` array. Runtime hazards come
-from the configured ULAP services; incidents and CLUP references remain absent
-until authorized imports are performed.
+from validated records activated in the local SQLite database, either through
+an authorized manual import or `scripts/sync_ulap_snapshot.py`. Incidents and
+CLUP references remain absent until authorized imports are performed.
 
 Sanitized ArcGIS responses and synthetic geometries may exist only under
 `tests/fixtures` or in explicit test setup. They are not production/development

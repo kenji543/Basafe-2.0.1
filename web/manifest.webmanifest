@@ -1,0 +1,22 @@
+{
+  "id": "/",
+  "name": "GeoSafe-FIS",
+  "short_name": "GeoSafe-FIS",
+  "description": "Public Multi-Hazard Mapping and Preliminary Location Screening for Basey, Samar",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7faf8",
+  "theme_color": "#073b4c",
+  "categories": ["education", "utilities"],
+  "icons": [
+    {"src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Assess a Location", "short_name": "Assess", "url": "/map", "icons": [{"src": "/icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "Data Sources", "short_name": "Sources", "url": "/data-sources"}
+  ]
+}

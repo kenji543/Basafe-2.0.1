@@ -24,6 +24,7 @@ from .ulap.integration import REQUIRED_HAZARDS, UlapIntegration
 
 
 HAZARD_ORDER = ("flood", "liquefaction", "ground_shaking")
+RUNTIME_DATA_MODES = ("snapshot", "live")
 
 
 def _now_iso() -> str:
@@ -71,11 +72,23 @@ class GeoSafeService:
         ulap: UlapIntegration | None = None,
         *,
         allow_test_fixtures: bool = False,
+        runtime_data_mode: str = "live",
     ):
+        if runtime_data_mode not in RUNTIME_DATA_MODES:
+            raise ValueError(
+                "runtime_data_mode must be one of: "
+                + ", ".join(RUNTIME_DATA_MODES)
+            )
         self.repository = repository
         self.model = model
         self.ulap = ulap
         self.allow_test_fixtures = allow_test_fixtures
+        self.runtime_data_mode = runtime_data_mode
+
+    @property
+    def uses_live_runtime_data(self) -> bool:
+        """Whether ordinary map and assessment requests may query ULAP."""
+        return self.runtime_data_mode == "live" and self.ulap is not None
 
     def _prefer_official(
         self, records: list[dict[str, Any]]
@@ -116,7 +129,7 @@ class GeoSafeService:
         }
 
     def boundary_geojson(self) -> dict[str, Any]:
-        if self.ulap is not None:
+        if self.uses_live_runtime_data:
             return self.ulap.boundary_geojson("municipal_boundary")
         all_boundaries = self.repository.municipal_boundaries()
         boundaries = self._prefer_official(all_boundaries)
@@ -143,7 +156,7 @@ class GeoSafeService:
         }
 
     def barangays_geojson(self) -> dict[str, Any]:
-        if self.ulap is not None:
+        if self.uses_live_runtime_data:
             return self.ulap.boundary_geojson("barangay_boundary")
         all_barangays = self.repository.barangays()
         barangays = self._prefer_official(all_barangays)
@@ -173,7 +186,7 @@ class GeoSafeService:
         }
 
     def barangay_geojson(self, barangay_id: int) -> dict[str, Any]:
-        if self.ulap is not None:
+        if self.uses_live_runtime_data:
             collection = self.ulap.boundary_geojson("barangay_boundary")
             for feature in collection.get("features", []):
                 properties = feature.get("properties") or {}
@@ -196,7 +209,7 @@ class GeoSafeService:
         )
 
     def hazard_layers(self) -> dict[str, Any]:
-        if self.ulap is not None:
+        if self.uses_live_runtime_data:
             services = self.ulap.services()["items"]
             datasets = []
             for item in services:
@@ -238,9 +251,24 @@ class GeoSafeService:
                 ],
             }
         datasets = self._prefer_official(self.repository.hazard_datasets())
+        rendered_datasets = [
+            {
+                **dataset,
+                "key": dataset["hazard_type"],
+                "dataset_type": "hazard",
+                "configured": True,
+                "status": "available",
+                "layer_url": (dataset.get("metadata") or {}).get("source_url"),
+                "display_url": (
+                    f"/hazard-layers/{dataset['hazard_type']}/features"
+                ),
+            }
+            for dataset in datasets
+        ]
         return {
-            "items": datasets,
+            "items": rendered_datasets,
             "required_hazard_types": list(HAZARD_ORDER),
+            "runtime_data_mode": self.runtime_data_mode,
             "notices": (
                 [
                     "One or more hazard layers are DEMONSTRATION DATA — NOT OFFICIAL."
@@ -251,7 +279,7 @@ class GeoSafeService:
         }
 
     def hazard_layer_features(self, dataset_id_or_slug: int | str) -> dict[str, Any]:
-        if self.ulap is not None:
+        if self.uses_live_runtime_data:
             key = str(dataset_id_or_slug).replace("-", "_")
             if key not in REQUIRED_HAZARDS:
                 raise NotFoundError(
@@ -259,6 +287,18 @@ class GeoSafeService:
                 )
             return self.ulap.hazard_geojson(key)
         dataset = self.repository.hazard_dataset(dataset_id_or_slug)
+        if not dataset and str(dataset_id_or_slug) in HAZARD_ORDER:
+            candidates = self._prefer_official(
+                self.repository.hazard_datasets()
+            )
+            dataset = next(
+                (
+                    item
+                    for item in candidates
+                    if item["hazard_type"] == str(dataset_id_or_slug)
+                ),
+                None,
+            )
         if not dataset:
             raise NotFoundError(f"Hazard layer {dataset_id_or_slug!r} was not found.")
         if dataset.get("is_demo") and not self.allow_test_fixtures:
@@ -298,7 +338,7 @@ class GeoSafeService:
             lat, lon = validate_wgs84_point(latitude, longitude)
         except GeometryError as exc:
             raise ValidationError(str(exc)) from exc
-        if self.ulap is not None:
+        if self.uses_live_runtime_data:
             identified = self.ulap.identify(lat, lon)
             status = str(identified.get("status") or "invalid_response")
             inside = bool(identified.get("inside_basey"))
@@ -470,7 +510,7 @@ class GeoSafeService:
                     **location,
                 }
             )
-        if self.ulap is not None:
+        if self.uses_live_runtime_data:
             collection = self.ulap.boundary_geojson("barangay_boundary")
             wanted = query.casefold()
             for feature in collection.get("features", []):
@@ -553,12 +593,17 @@ class GeoSafeService:
             return (
                 {
                     "hazard_type": hazard_type,
+                    "hazard": hazard_type,
                     "name": hazard_type.replace("_", " ").title(),
+                    "status": "unavailable",
                     "availability_status": "missing",
                     "classification": None,
+                    "official_label": None,
+                    "raw_code": None,
                     "normalized_value": None,
                     "normalized_fraction": None,
                     "source": None,
+                    "warnings": ["No validated local snapshot is loaded."],
                     "quality_notice": (
                         "No dataset is loaded. Missing information is not low vulnerability."
                     ),
@@ -589,6 +634,13 @@ class GeoSafeService:
             quality_parts.append(
                 "overlapping features found; the first matching feature was used"
             )
+        dataset_metadata = dict(dataset.get("metadata") or {})
+        source_url = dataset_metadata.get("source_url")
+        retrieved_at = (
+            dataset_metadata.get("retrieved_at")
+            or dataset_metadata.get("imported_at")
+            or dataset.get("imported_at")
+        )
         source = {
             "dataset_id": dataset["id"],
             "dataset_slug": dataset["slug"],
@@ -601,6 +653,8 @@ class GeoSafeService:
             "data_status": dataset["data_status"],
             "metadata": dataset["metadata"],
             "imported_at": dataset["imported_at"],
+            "source_url": source_url,
+            "retrieved_at": retrieved_at,
         }
         normalization = {
             "source_field": "hazard_features.normalized_value",
@@ -625,10 +679,19 @@ class GeoSafeService:
             return (
                 {
                     "hazard_type": hazard_type,
+                    "hazard": hazard_type,
                     "name": dataset["name"],
+                    "status": "no_intersection" if feature is None else "missing_value",
                     "availability_status": "missing",
                     "classification": (
                         feature["classification"] if feature else None
+                    ),
+                    "official_label": (
+                        feature["classification"] if feature else None
+                    ),
+                    "raw_code": (
+                        feature["properties"].get("source_code")
+                        if feature else None
                     ),
                     "normalized_value": None,
                     "normalized_fraction": None,
@@ -640,6 +703,10 @@ class GeoSafeService:
                     "is_official": dataset["is_official"],
                     "is_demo": dataset["is_demo"],
                     "data_status": dataset["data_status"],
+                    "source_url": source_url,
+                    "retrieved_at": retrieved_at,
+                    "spatial_reference": 4326,
+                    "warnings": [reason],
                     "quality_notice": "; ".join(quality_parts),
                 },
                 notices,
@@ -649,9 +716,13 @@ class GeoSafeService:
         return (
             {
                 "hazard_type": hazard_type,
+                "hazard": hazard_type,
                 "name": dataset["name"],
+                "status": "available",
                 "availability_status": "available",
                 "classification": feature["classification"],
+                "official_label": feature["classification"],
+                "raw_code": feature["properties"].get("source_code"),
                 "normalized_value": normalized_value,
                 "normalized_fraction": normalized_fraction,
                 "source": source,
@@ -663,10 +734,43 @@ class GeoSafeService:
                 "is_demo": dataset["is_demo"],
                 "data_status": dataset["data_status"],
                 "feature_properties": feature["properties"],
+                "source_url": source_url,
+                "retrieved_at": retrieved_at,
+                "spatial_reference": 4326,
+                "warnings": [],
                 "quality_notice": "; ".join(quality_parts) or None,
             },
             notices,
         )
+
+    def _runtime_assessment_hazards(
+        self, latitude: float, longitude: float
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Resolve model inputs from the configured runtime data source.
+
+        Snapshot mode never falls through to the network. An absent local
+        dataset therefore remains an explicit missing input instead of making
+        an opportunistic ULAP request during an assessment.
+        """
+        if self.uses_live_runtime_data:
+            assert self.ulap is not None
+            return self.ulap.assessment_hazards(
+                latitude, longitude, self.model
+            )
+
+        datasets = self._prefer_official(self.repository.hazard_datasets())
+        hazards: list[dict[str, Any]] = []
+        notices: list[str] = []
+        for hazard_type in HAZARD_ORDER:
+            hazard, hazard_notices = self._hazard_at_location(
+                hazard_type,
+                latitude,
+                longitude,
+                datasets,
+            )
+            hazards.append(hazard)
+            notices.extend(hazard_notices)
+        return hazards, notices
 
     def nearby_incidents(
         self,
@@ -807,25 +911,9 @@ class GeoSafeService:
             )
         location["label"] = location_label
         location["selection_method"] = selection_method
-        if self.ulap is not None:
-            hazards, lookup_notices = self.ulap.assessment_hazards(
-                location["latitude"], location["longitude"], self.model
-            )
-        else:
-            datasets = self._prefer_official(
-                self.repository.hazard_datasets()
-            )
-            hazards = []
-            lookup_notices = []
-            for hazard_type in HAZARD_ORDER:
-                hazard, notices = self._hazard_at_location(
-                    hazard_type,
-                    location["latitude"],
-                    location["longitude"],
-                    datasets,
-                )
-                hazards.append(hazard)
-                lookup_notices.extend(notices)
+        hazards, lookup_notices = self._runtime_assessment_hazards(
+            location["latitude"], location["longitude"]
+        )
         model_inputs = {
             hazard["hazard_type"]: hazard["normalized_value"]
             for hazard in hazards
@@ -1005,6 +1093,7 @@ class GeoSafeService:
                     else None
                 ),
                 "memberships": result["memberships"],
+                "indicatorWeights": result.get("indicator_weights", {}),
                 "activatedRules": result["activated_rules"],
                 "missingInputs": result["missing_inputs"],
                 "message": result["message"],
@@ -1047,11 +1136,17 @@ class GeoSafeService:
             ]
         return linked
 
-    def assessment(self, assessment_id: int) -> dict[str, Any]:
-        snapshot = self.repository.assessment(assessment_id)
-        if not snapshot:
-            raise NotFoundError(f"Assessment {assessment_id} was not found.")
-        return self._with_links(snapshot)
+    def _assessment_record(
+        self, public_token: str
+    ) -> tuple[int, dict[str, Any]]:
+        record = self.repository.assessment_by_token(public_token)
+        if not record:
+            raise NotFoundError("Assessment was not found.")
+        internal_id, snapshot = record
+        return internal_id, self._with_links(snapshot)
+
+    def assessment(self, public_token: str) -> dict[str, Any]:
+        return self._assessment_record(public_token)[1]
 
     def assessments(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         if not 1 <= limit <= 100:
@@ -1060,15 +1155,16 @@ class GeoSafeService:
             raise ValidationError("offset must not be negative.")
         return self.repository.assessments(limit, offset)
 
-    def explanation(self, assessment_id: int) -> dict[str, Any]:
-        assessment = self.assessment(assessment_id)
+    def explanation(self, public_token: str) -> dict[str, Any]:
+        assessment = self.assessment(public_token)
         result = assessment["result"]
         return {
-            "assessment_id": assessment_id,
+            "assessment_id": public_token,
             "status": result["status"],
             "model_version": result["model_version"],
             "normalized_inputs": result["normalized_inputs"],
             "memberships": result["memberships"],
+            "indicator_weights": result.get("indicator_weights", {}),
             "evaluated_rules": result["evaluated_rules"],
             "activated_rules": result["activated_rules"],
             "inference": result["inference"],
@@ -1080,8 +1176,8 @@ class GeoSafeService:
             "validation_notes": result["validation_notes"],
         }
 
-    def assessment_report(self, assessment_id: int) -> tuple[bytes, dict[str, Any]]:
-        assessment = self.assessment(assessment_id)
+    def assessment_report(self, public_token: str) -> tuple[bytes, dict[str, Any]]:
+        assessment_id, assessment = self._assessment_record(public_token)
         pdf_content = generate_pdf(
             assessment_report_lines(
                 assessment,
@@ -1089,7 +1185,8 @@ class GeoSafeService:
                     "disclaimer", self.model.configuration["disclaimer"]
                 ),
             ),
-            title=f"GeoSafe-FIS Assessment {assessment_id}",
+            title=f"GeoSafe-FIS Assessment {public_token[:12]}",
+            assessment=assessment,
         )
         metadata = self.repository.save_report_record(
             assessment_id, pdf_content, assessment
@@ -1201,6 +1298,46 @@ class GeoSafeService:
         hazards, lookup_notices = self.ulap.assessment_hazards(
             location["latitude"], location["longitude"], self.model
         )
+        return self._hazard_lookup_response(
+            location, hazards, lookup_notices
+        )
+
+    def hazard_at_location(
+        self, hazard: str, latitude: float, longitude: float
+    ) -> dict[str, Any]:
+        """Resolve one hazard using the configured runtime source."""
+        normalized = hazard.replace("-", "_")
+        if normalized not in HAZARD_ORDER:
+            raise NotFoundError(f"Hazard {hazard!r} was not found.")
+        payload = self.hazards_at_location(latitude, longitude)
+        key = "groundShaking" if normalized == "ground_shaking" else normalized
+        return {"location": payload["location"], **payload["hazards"][key]}
+
+    def hazards_at_location(
+        self, latitude: float, longitude: float
+    ) -> dict[str, Any]:
+        """Resolve all hazards without network access in snapshot mode."""
+        if self.uses_live_runtime_data:
+            return self.live_hazards_at_location(latitude, longitude)
+        location = self.identify_location(latitude, longitude)
+        if not location["inside_basey"]:
+            raise OutsideBaseyError(
+                "The selected point is outside the verified Basey municipal boundary.",
+                {"location": location},
+            )
+        hazards, lookup_notices = self._runtime_assessment_hazards(
+            location["latitude"], location["longitude"]
+        )
+        return self._hazard_lookup_response(
+            location, hazards, lookup_notices
+        )
+
+    def _hazard_lookup_response(
+        self,
+        location: dict[str, Any],
+        hazards: list[dict[str, Any]],
+        lookup_notices: list[str],
+    ) -> dict[str, Any]:
         result = self.model.evaluate(
             {
                 hazard["hazard_type"]: hazard["normalized_value"]
@@ -1272,10 +1409,11 @@ class GeoSafeService:
             "sources": sources,
             "dataQuality": list(dict.fromkeys(notices)),
             "retrievedAt": _now_iso(),
+            "runtimeDataMode": self.runtime_data_mode,
         }
 
     def data_sources(self) -> dict[str, Any]:
-        if self.ulap is not None:
+        if self.uses_live_runtime_data:
             registered = self.ulap.services()
             services = registered["items"]
             incidents = self._prefer_official(self.repository.incidents())
@@ -1578,9 +1716,11 @@ class GeoSafeService:
                 ),
             },
             "notice": (
-                "Every record exposes official/demonstration status. Demonstration "
-                "content is unsuitable for operational decisions."
+                "Runtime maps and assessments use these activated local snapshots "
+                "without querying ULAP. Every record exposes official/demonstration "
+                "status; demonstration content is unsuitable for operational decisions."
             ),
+            "runtime_data_mode": self.runtime_data_mode,
         }
 
     def all_incidents(self, limit: int = 200) -> dict[str, Any]:

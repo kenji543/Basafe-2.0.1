@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import secrets
 import sqlite3
 from collections.abc import Iterable, Mapping
 from contextlib import contextmanager
@@ -55,9 +56,32 @@ class Repository:
             raise RepositoryError(f"Database schema not found: {self.schema_path}")
         with self.connection() as connection:
             connection.executescript(self.schema_path.read_text(encoding="utf-8"))
+            self._ensure_assessment_tokens(connection)
             connection.execute("PRAGMA journal_mode = WAL")
             connection.commit()
         self.model_id = self._synchronize_model(model)
+
+    @staticmethod
+    def _ensure_assessment_tokens(connection: sqlite3.Connection) -> None:
+        """Migrate older prototype databases to private public identifiers."""
+        columns = {
+            str(row["name"])
+            for row in connection.execute("PRAGMA table_info(assessments)")
+        }
+        if "public_token" not in columns:
+            connection.execute("ALTER TABLE assessments ADD COLUMN public_token TEXT")
+        rows = connection.execute(
+            "SELECT id FROM assessments WHERE public_token IS NULL OR public_token = ''"
+        ).fetchall()
+        for row in rows:
+            connection.execute(
+                "UPDATE assessments SET public_token = ? WHERE id = ?",
+                (secrets.token_urlsafe(24), int(row["id"])),
+            )
+        connection.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_assessments_public_token "
+            "ON assessments(public_token)"
+        )
 
     def _synchronize_model(self, model: FuzzyModel) -> int:
         configuration = model.configuration
@@ -406,18 +430,20 @@ class Repository:
             if result["status"] == "incomplete"
             else None
         )
+        public_token = secrets.token_urlsafe(24)
         with self.connection() as connection:
             try:
                 cursor = connection.execute(
                     """
                     INSERT INTO assessments (
-                        model_id, barangay_id, location_label,
+                        public_token, model_id, barangay_id, location_label,
                         selected_latitude, selected_longitude, status,
                         incomplete_reason, source_snapshot_json,
                         recommendations_json, disclaimer
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, '{}', ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '{}', ?, ?)
                     """,
                     (
+                        public_token,
                         self.model_id,
                         (location.get("barangay") or {}).get("id"),
                         label,
@@ -522,7 +548,7 @@ class Repository:
                     ),
                 )
                 saved_snapshot = dict(snapshot)
-                saved_snapshot["id"] = assessment_id
+                saved_snapshot["id"] = public_token
                 created_at = connection.execute(
                     "SELECT created_at FROM assessments WHERE id = ?",
                     (assessment_id,),
@@ -551,6 +577,21 @@ class Repository:
         if not row:
             return None
         return json_value(row["source_snapshot_json"], {})
+
+    def assessment_by_token(
+        self, public_token: str
+    ) -> tuple[int, dict[str, Any]] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT id, public_token, source_snapshot_json "
+                "FROM assessments WHERE public_token = ?",
+                (public_token,),
+            ).fetchone()
+        if not row:
+            return None
+        snapshot = json_value(row["source_snapshot_json"], {})
+        snapshot["id"] = row["public_token"]
+        return int(row["id"]), snapshot
 
     def assessments(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         with self.connection() as connection:

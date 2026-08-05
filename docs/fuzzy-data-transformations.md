@@ -2,16 +2,16 @@
 
 ## 1. Separation of source evidence and model output
 
-GeoSafe-FIS model `0.4.0-demo` keeps four layers of meaning separate:
+GeoSafe-FIS model `0.5.2-demo` keeps four layers of meaning separate:
 
 ```text
 official ArcGIS code and label
-        ↓ exact, versioned demonstration lookup
-GeoSafe-FIS normalized input (0–100)
-        ↓ configured membership functions
-low / moderate / high membership degrees (0–1)
-        ↓ configured weighted Mamdani rules
-combined vulnerability screening score (1–100)
+        â†“ exact, versioned demonstration lookup
+GeoSafe-FIS normalized input (0â€“100)
+        â†“ configured membership functions
+low / moderate / high membership degrees (0â€“1)
+        â†“ configured weighted Mamdani rules
+combined vulnerability screening score (1â€“100)
 ```
 
 Only the first layer is an official source classification. The normalized
@@ -34,7 +34,7 @@ MGBPublic/Flood/MapServer/0
 field: fscode
 ```
 
-| Official `fscode` | Official label | GeoSafe-FIS `0–100` input |
+| Official `fscode` | Official label | GeoSafe-FIS `0â€“100` input |
 | --- | --- | ---: |
 | `01` | Low Susceptibility | 20 |
 | `02` | Moderate Susceptibility | 50 |
@@ -52,8 +52,8 @@ Flood memberships use:
 | Moderate | Triangular | `(25, 50, 75)` |
 | High | Trapezoidal | `(55, 75, 100, 100)` |
 
-For example, `fscode = 03` remains “High Susceptibility,” maps separately to
-75 for model `0.4.0-demo`, and has flood memberships Low 0, Moderate 0, High 1
+For example, `fscode = 03` remains â€œHigh Susceptibility,â€ maps separately to
+75 for model `0.5.2-demo`, and has flood memberships Low 0, Moderate 0, High 1
 under this configuration.
 
 ## 3. Liquefaction transformation
@@ -65,7 +65,7 @@ PHIVOLCSPublic/Liquefaction/MapServer/0
 field: lccode
 ```
 
-| Official `lccode` | Official label | GeoSafe-FIS `0–100` input | Transformation note |
+| Official `lccode` | Official label | GeoSafe-FIS `0â€“100` input | Transformation note |
 | --- | --- | ---: | --- |
 | `01` | Generally Susceptible | 50 | Broad/general class; not treated as Low Potential |
 | `02` | Low Potential | 25 | Exact-code lookup |
@@ -77,7 +77,7 @@ field: lccode
 
 The domain combines differently worded classification families. GeoSafe-FIS
 does not infer order from the code numbers and does not automatically equate
-“Potential” with “Susceptible.” Each row is explicit so specialists can revise
+â€œPotentialâ€ with â€œSusceptible.â€ Each row is explicit so specialists can revise
 or reject it independently.
 
 Liquefaction memberships use:
@@ -88,24 +88,26 @@ Liquefaction memberships use:
 | Moderate | Triangular | `(25, 50, 75)` |
 | High | Trapezoidal | `(55, 80, 100, 100)` |
 
-For example, `lccode = 01` remains “Generally Susceptible,” maps separately to
+For example, `lccode = 01` remains â€œGenerally Susceptible,â€ maps separately to
 50, and has Liquefaction memberships Low 0, Moderate 1, High 0 in model
-`0.4.0-demo`. That model result does not redefine the official label.
+`0.5.2-demo`. That model result does not redefine the official label.
 
 ## 4. Ground-shaking transformation
 
-No ground-shaking transformation is configured:
+Ground shaking uses a local grid derived from four official PHIVOLCS Region
+VIII 2014 deterministic-scenario raster maps. Each grid cell stores the maximum
+sampled PEIS intensity across the scenarios, rounded to an exact code:
 
 ```text
-source dataset: null
-source field: null
-classification mappings: {}
+source field: peiscode
+classification mappings: 01/I -> 10, 02/II -> 20, ... 10/X -> 100
 ```
 
-This is deliberate. No verified ground-shaking, seismic-intensity, PEIS/MMI,
-PGA, or PGV service was supplied or found. The configured ground-shaking
-membership shapes remain dormant until both an authorized source and a
-domain-expert-approved transformation exist.
+The exact scenario values, source URLs, aggregation method, grid size, and 2014
+source date remain in each feature's metadata. The grid is a GeoSafe-FIS
+derivative, not a PHIVOLCS-issued vector layer. Its `limited` quality status
+and the demonstration transformation must remain visible until reviewed by
+qualified seismology and model specialists.
 
 The application must not use Active Fault, fault distance, liquefaction,
 epicenters, a generic seismic-hazard value, an invented intensity, zero, or a
@@ -116,7 +118,7 @@ previous result in its place.
 For a triangular membership with parameters `(a, b, c)`:
 
 ```text
-0                         when x ≤ a or x ≥ c
+0                         when x â‰¤ a or x â‰¥ c
 (x - a) / (b - a)         when a < x < b
 1                         when x = b
 (c - x) / (c - b)         when b < x < c
@@ -127,7 +129,7 @@ For a trapezoidal membership with parameters `(a, b, c, d)`:
 ```text
 0                         when x < a or x > d
 (x - a) / (b - a)         when a < x < b
-1                         when b ≤ x ≤ c
+1                         when b â‰¤ x â‰¤ c
 (d - x) / (d - c)         when c < x < d
 ```
 
@@ -137,33 +139,33 @@ and explained.
 
 ## 6. Rule and score gate
 
-Model `0.4.0-demo` uses three required inputs, 12 weighted Mamdani rules,
-minimum for `AND`, maximum for `OR`, minimum implication, maximum aggregation,
+Model `0.5.2-demo` uses three required inputs and one complete generated grid of
+27 monotonic Mamdani rules, minimum for `AND`, maximum for `OR`, minimum implication, maximum aggregation,
 and discrete centroid defuzzification at each integer from 1 through 100.
 Configured output bands are:
 
 | Display category | Score |
 | --- | --- |
-| Low | 1–25 |
-| Moderate | 26–50 |
-| High | 51–75 |
-| Very High | 76–100 |
+| Low | 1â€“25 |
+| Moderate | 26â€“50 |
+| High | 51â€“75 |
+| Very High | 76â€“100 |
 
 A complete score is calculated only when all three required source values are
 available, their exact codes are recognized, and the model configuration is
-valid. Because ground shaking is currently unavailable, a live ULAP
-three-hazard assessment must return:
+valid. A genuine source-coverage gap, missing snapshot, unknown code, or
+service/import failure still returns an incomplete result with a null score:
 
 ```json
 {
   "status": "incomplete",
   "score": null,
-  "missing_inputs": ["ground_shaking"]
+  "missing_inputs": ["the_missing_hazard"]
 }
 ```
 
-Available flood and liquefaction evidence may still be displayed and explained.
-They must not be combined into a normal three-hazard score.
+Available evidence may still be displayed and explained, but it is never
+combined into a normal three-hazard score when any required input is missing.
 
 ## 7. Missing and changed source values
 
@@ -188,7 +190,7 @@ The deployment importer can store a documented normalized fraction from 0 to 1
 for an authorized static hazard dataset. That path transforms:
 
 ```text
-model input = stored fraction × 100
+model input = stored fraction Ã— 100
 ```
 
 It is distinct from the live ULAP exact-code mappings above. A deployment must

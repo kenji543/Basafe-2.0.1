@@ -13,8 +13,13 @@ venv/
 data/*.db
 data/*.db-*
 data/*.sqlite*
+data/backups/
 *.import-errors.jsonl
 *.log
+
+# Local review and generated working artifacts
+.codex-review/
+tmp/
 
 # Generated reports, if file-backed report storage is enabled later
 reports/

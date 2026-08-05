@@ -105,7 +105,7 @@ class AssessmentWorkflowTests(unittest.TestCase):
         )
         self.assertTrue(assessment["recommendations"])
         self.assertIn(
-            "preliminary decision-support screening result",
+            "preliminary multi-hazard screening output",
             assessment["disclaimer"],
         )
         self.assertTrue(
@@ -126,7 +126,7 @@ class AssessmentWorkflowTests(unittest.TestCase):
         )
         explanation_json = json.loads(explanation.body)
         self.assertEqual(explanation_json["score"], assessment["result"]["score"])
-        self.assertEqual(len(explanation_json["evaluated_rules"]), 12)
+        self.assertEqual(len(explanation_json["evaluated_rules"]), 27)
 
     def test_required_missing_hazard_makes_assessment_incomplete(self) -> None:
         response = self.application.api.dispatch(
@@ -199,26 +199,31 @@ class AssessmentWorkflowTests(unittest.TestCase):
         )
         self.assertNotIn(b"Normalized screening score: 1", report.body)
 
-    def test_history_is_unified_and_not_user_scoped(self) -> None:
-        self.application.api.dispatch(
+    def test_history_is_private_and_assessments_use_unguessable_tokens(self) -> None:
+        created = self.application.api.dispatch(
             "POST",
             "/api/v1/assessments",
             body=json.dumps({"latitude": 11.5, "longitude": 125.25}).encode(),
         )
-        response = self.application.api.dispatch(
-            "GET", "/api/v1/assessments"
+        assessment = json.loads(created.body)
+        self.assertRegex(assessment["id"], r"^[A-Za-z0-9_-]{20,128}$")
+        self.assertEqual(
+            self.application.api.dispatch(
+                "GET", "/api/v1/assessments"
+            ).status,
+            404,
         )
-        history = json.loads(response.body)
-        self.assertEqual(history["count"], 1)
-        self.assertNotIn("user_id", history["items"][0])
-        self.assertNotIn("role", history["items"][0])
-
-    def test_invalid_pagination_is_not_silently_defaulted(self) -> None:
-        response = self.application.api.dispatch(
-            "GET", "/api/v1/assessments", {"limit": ["0"]}
+        self.assertEqual(
+            self.application.api.dispatch(
+                "GET", "/api/v1/assessments/1"
+            ).status,
+            404,
         )
-        self.assertEqual(response.status, 422)
-        self.assertEqual(json.loads(response.body)["error"]["code"], "validation_error")
+        private_record = self.application.api.dispatch(
+            "GET", assessment["links"]["self"]
+        )
+        self.assertEqual(private_record.status, 200)
+        self.assertEqual(json.loads(private_record.body)["id"], assessment["id"])
 
 
 if __name__ == "__main__":

@@ -154,9 +154,62 @@ class Api:
     ) -> Response:
         query = query or {}
         normalized_path = path.rstrip("/") or "/"
+        compatibility_aliases = {
+            "/api/source-status": "/api/v1/ulap/status",
+            "/api/layers": "/api/v1/hazard-layers",
+            "/api/model/current": "/api/v1/methodology",
+            "/api/model/current/methodology": "/api/v1/methodology",
+        }
+        normalized_path = compatibility_aliases.get(normalized_path, normalized_path)
+        if normalized_path.startswith("/api/assessments"):
+            normalized_path = normalized_path.replace(
+                "/api/assessments", "/api/v1/assessments", 1
+            )
+        layer_metadata_match = re.fullmatch(
+            r"/api/layers/([^/]+)/metadata", normalized_path
+        )
+        if layer_metadata_match:
+            normalized_path = (
+                "/api/v1/ulap/services/"
+                f"{layer_metadata_match.group(1)}/metadata"
+            )
         try:
             if method == "OPTIONS":
                 return Response(204, b"", {"Content-Length": "0"})
+            if method == "GET" and normalized_path in {
+                "/api/health",
+                "/api/v1/health",
+            }:
+                return Response.json(
+                    {
+                        "status": "ok",
+                        "application": "GeoSafe-FIS",
+                        "model_version": self.service.model.version,
+                        "runtime_data_mode": self.service.runtime_data_mode,
+                    }
+                )
+            if method == "POST" and normalized_path == "/api/location/validate":
+                payload = self._json_body(body)
+                latitude = payload.get("latitude", payload.get("lat"))
+                longitude = payload.get(
+                    "longitude", payload.get("lon", payload.get("lng"))
+                )
+                if latitude is None or longitude is None:
+                    raise ValidationError("latitude and longitude are required.")
+                return Response.json(
+                    self.service.identify_location(latitude, longitude)
+                )
+            if method == "POST" and normalized_path == "/api/hazards/query":
+                payload = self._json_body(body)
+                latitude = payload.get("latitude", payload.get("lat"))
+                longitude = payload.get(
+                    "longitude", payload.get("lon", payload.get("lng"))
+                )
+                if latitude is None or longitude is None:
+                    raise ValidationError("latitude and longitude are required.")
+                return Response.json(
+                    self.service.hazards_at_location(latitude, longitude)
+                )
             if method == "GET" and normalized_path == "/api/v1/ulap/status":
                 return Response.json(
                     self.service.ulap_status(
@@ -220,7 +273,7 @@ class Api:
                 latitude = self._coordinate(query, "lat", "latitude")
                 longitude = self._coordinate(query, "lon", "longitude")
                 return Response.json(
-                    self.service.live_hazards_at_location(latitude, longitude)
+                    self.service.hazards_at_location(latitude, longitude)
                 )
             match = re.fullmatch(
                 r"/api/v1/hazards/(flood|liquefaction|ground-shaking)",
@@ -230,7 +283,7 @@ class Api:
                 latitude = self._coordinate(query, "lat", "latitude")
                 longitude = self._coordinate(query, "lon", "longitude")
                 return Response.json(
-                    self.service.live_hazard_at_location(
+                    self.service.hazard_at_location(
                         match.group(1), latitude, longitude
                     )
                 )
@@ -295,25 +348,34 @@ class Api:
                     headers={"Location": assessment["links"]["self"]},
                 )
             if method == "GET" and normalized_path == "/api/v1/assessments":
-                limit = self._int(query, "limit", required=False, default=50)
-                offset = self._int(query, "offset", required=False, default=0)
                 return Response.json(
-                    self.service.assessments(limit, offset)
+                    {
+                        "error": {
+                            "code": "private_history",
+                            "message": (
+                                "Assessment history is private to each device and "
+                                "is not available as a shared service listing."
+                            ),
+                        }
+                    },
+                    status=404,
                 )
 
             match = re.fullmatch(
-                r"/api/v1/assessments/(\d+)/explanation", normalized_path
+                r"/api/v1/assessments/([A-Za-z0-9_-]{20,128})/explanation",
+                normalized_path,
             )
             if method == "GET" and match:
                 return Response.json(
-                    self.service.explanation(int(match.group(1)))
+                    self.service.explanation(match.group(1))
                 )
             match = re.fullmatch(
-                r"/api/v1/assessments/(\d+)/report", normalized_path
+                r"/api/v1/assessments/([A-Za-z0-9_-]{20,128})/report",
+                normalized_path,
             )
             if method == "GET" and match:
-                assessment_id = int(match.group(1))
-                pdf_content, metadata = self.service.assessment_report(assessment_id)
+                public_token = match.group(1)
+                pdf_content, metadata = self.service.assessment_report(public_token)
                 return Response(
                     200,
                     pdf_content,
@@ -321,16 +383,19 @@ class Api:
                         "Content-Type": "application/pdf",
                         "Content-Length": str(len(pdf_content)),
                         "Content-Disposition": (
-                            f'attachment; filename="geosafe-assessment-{assessment_id}.pdf"'
+                            f'attachment; filename="geosafe-assessment-{public_token[:12]}.pdf"'
                         ),
                         "Cache-Control": "no-store",
                         "X-Report-SHA256": metadata["sha256"],
                     },
                 )
-            match = re.fullmatch(r"/api/v1/assessments/(\d+)", normalized_path)
+            match = re.fullmatch(
+                r"/api/v1/assessments/([A-Za-z0-9_-]{20,128})",
+                normalized_path,
+            )
             if method == "GET" and match:
                 return Response.json(
-                    self.service.assessment(int(match.group(1)))
+                    self.service.assessment(match.group(1))
                 )
 
             if method == "GET" and normalized_path == "/api/v1/incidents/nearby":

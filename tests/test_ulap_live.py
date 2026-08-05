@@ -10,6 +10,7 @@ from geosafe.ulap import (
     HazardProvider,
     MetadataValidator,
     ServiceRegistry,
+    UlapIntegration,
 )
 from geosafe.ulap.models import Status
 
@@ -19,9 +20,6 @@ ROOT = Path(__file__).resolve().parent.parent
 # Confirmed common coverage point: Basey; live flood fscode=03 and
 # liquefaction lccode=01 when verified on 2026-07-23.
 BASEY_COVERAGE_POINT = (125.0336740411251, 11.290798389750039)
-BASEY_BBOX = (124.9764, 11.2540, 125.3092, 11.5641)
-
-
 @unittest.skipUnless(LIVE, "Set LIVE_ULAP_TESTS=true to contact official ULAP services.")
 class LiveUlapIntegrationTests(unittest.TestCase):
     @classmethod
@@ -36,6 +34,7 @@ class LiveUlapIntegrationTests(unittest.TestCase):
         for key in (
             "flood",
             "liquefaction",
+            "ground_shaking",
             "municipal_boundary",
             "barangay_boundary",
         ):
@@ -77,19 +76,20 @@ class LiveUlapIntegrationTests(unittest.TestCase):
         self.assertGreater(len(municipal.feature_collection["features"]), 0)
         self.assertGreater(len(barangays.feature_collection["features"]), 0)
 
-        hazard_provider = HazardProvider(self.client, self.registry)
+        integration = UlapIntegration(self.client, self.registry)
         for key in ("flood", "liquefaction"):
             with self.subTest(hazard=key):
-                layer = hazard_provider.basey_bbox_geojson(key, BASEY_BBOX)
-                self.assertEqual(layer.status, Status.AVAILABLE, layer.to_dict())
-                self.assertGreater(len(layer.feature_collection["features"]), 0)
+                layer = integration.hazard_geojson(key)
+                self.assertEqual(layer["status"], Status.AVAILABLE.value, layer)
+                self.assertGreater(len(layer["features"]), 0)
 
     def test_ground_shaking_is_not_substituted(self) -> None:
         result = HazardProvider(self.client, self.registry).at_location(
             "ground_shaking", *BASEY_COVERAGE_POINT
         )
-        self.assertEqual(result.status, Status.UNAVAILABLE)
-        self.assertIsNone(result.source_url)
+        self.assertIn(result.status, (Status.AVAILABLE, Status.NO_INTERSECTION))
+        self.assertIsNotNone(result.source_url)
+        self.assertIn("phivolcs", result.source_url.casefold())
 
 
 if __name__ == "__main__":

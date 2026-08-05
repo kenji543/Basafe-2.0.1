@@ -18,18 +18,18 @@ geographically plausible.
 
 ## 2. Current source register
 
-Observed metadata and query status are dated 2026-07-23.
+Observed metadata and service behavior were rechecked on 2026-08-05.
 
 | Required source | Configured source | Agency / attribution | Verification | Operational limitation |
 | --- | --- | --- | --- | --- |
 | Basey municipal boundary | `PSA/Municipal/MapServer/0` through GeoRisk Philippines ULAP | Philippine Statistics Authority | Live service/layer and Basey filter verified | Confirm republication/use terms and retain runtime metadata |
 | Basey barangays | `PSA/BarangayPopMF/MapServer/0` through GeoRisk Philippines ULAP | Philippine Statistics Authority | Live service/layer verified; 51 Basey features returned | Reconcile with the supplied 58-feature file; use PSGC identifiers |
-| Flood | `MGBPublic/Flood/MapServer/0` | Mines and Geosciences Bureau; layer text identifies MGB as source as of July 2018 | Live service/layer, `fscode`, domain, and query behavior verified | Coverage is not continuous at every tested point; age/fitness must be stated |
+| Flood | `MGBPublic/Flood/MapServer/0` | Mines and Geosciences Bureau; layer text identifies MGB as source as of July 2018 | Live metadata and `fscode` domain verified; layer query currently rejects requests, while MapServer `identify` works | Snapshot sync uses controlled `identify`; coverage is not continuous at every point |
 | Liquefaction | `PHIVOLCSPublic/Liquefaction/MapServer/0` | Philippine Institute of Volcanology and Seismology; layer requests PHIVOLCS acknowledgement as of July 2018 | Live service/layer, `lccode`, domain, and query behavior verified | Mixed classification families and point gaps require careful handling |
-| Ground shaking | None | Source not established | Not configured / unavailable | Required dependency; blocks a complete score |
+| Ground shaking | Four fixed official Region VIII 2014 deterministic-scenario KMZs; public `PHIVOLCSPublic/GroundShaking/MapServer/0` retained for metadata | Philippine Institute of Volcanology and Seismology | Scenario rasters cover Basey; PEIS values are sampled to a local grid and maximum scenario intensity retained | `limited` derived data, about 550 m cells; public feature layer itself has no Basey point coverage |
 | Historical incidents | None authorized/configured | To be established by deployment data owner | Not configured | Display only authorized records with date, location, provenance, and completeness limits |
 | CLUP references | None authorized/configured | To be established from the adopted Basey CLUP | Not configured | Requires edition, section/map reference, adoption status, spatial meaning, and use terms |
-| Fuzzy model | `config/fuzzy_model.json`, version `0.4.0-demo` | GeoSafe-FIS demonstration configuration | Software-readable and version controlled | All transformations, memberships, rules, weights, and thresholds need expert validation |
+| Fuzzy model | `config/fuzzy_model.json`, version `0.5.2-demo` | GeoSafe-FIS demonstration configuration | Software-readable and version controlled | All transformations, memberships, rules, weights, and thresholds need expert validation |
 
 The runtime source registry is
 `config/ulap-services.generated.json`. Deployment-data requirements and the
@@ -160,8 +160,8 @@ An operational incident import must record, at minimum:
   and
 - authorization/use restrictions.
 
-Absence of an incident record means “no available record in the configured
-source,” not “no incident occurred.”
+Absence of an incident record means â€œno available record in the configured
+source,â€ not â€œno incident occurred.â€
 
 ## 7. CLUP references
 
@@ -178,7 +178,7 @@ references must identify:
 - interpretation and currency limitations.
 
 CLUP context is explanatory planning evidence, not a numeric fuzzy input in
-model `0.4.0-demo`.
+model `0.5.1-demo`.
 
 ## 8. Demonstration-data rule
 

@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-import json
-import textwrap
+from io import BytesIO
 from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
 from typing import Any
+
+from reportlab.lib.colors import HexColor
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.pdfgen import canvas
 
 
 def _safe_text(value: Any) -> str:
@@ -14,7 +18,15 @@ def _safe_text(value: Any) -> str:
         return "Unavailable"
     if isinstance(value, bool):
         return "Yes" if value else "No"
-    return str(value).replace("\r", " ").replace("\n", " ")
+    return (
+        str(value)
+        .replace("\r", " ")
+        .replace("\n", " ")
+        .replace("\u2011", "-")
+        .replace("\u2013", "-")
+        .replace("\u2014", "-")
+        .replace("\u2192", "->")
+    )
 
 
 def _provenance_line(label: str, record: Mapping[str, Any] | None) -> str:
@@ -74,7 +86,8 @@ def assessment_report_lines(
         "Planning-oriented multi-hazard screening prototype",
         "",
         f"Assessment ID: {_safe_text(assessment.get('id'))}",
-        f"Generated: {_safe_text(assessment.get('created_at'))}",
+        f"Assessment created: {_safe_text(assessment.get('created_at'))}",
+        f"Report generated: {datetime.now(timezone.utc).isoformat()}",
         f"Status: {_safe_text(assessment.get('status', result.get('status'))).upper()}",
         f"Model version: {_safe_text(result.get('model_version'))}",
         f"Model checksum (SHA-256): {_safe_text(result.get('model_checksum'))}",
@@ -142,11 +155,29 @@ def assessment_report_lines(
     else:
         lines.extend(
             [
-                "Assessment incomplete — no score or vulnerability category was assigned.",
+                "Assessment incomplete - no score or vulnerability category was assigned.",
                 f"Missing required inputs: {', '.join(result.get('missing_inputs', [])) or 'Unavailable'}",
                 "Missing information was not interpreted as low vulnerability.",
             ]
         )
+
+    weight_record = result.get("indicator_weights") or {}
+    weight_values = weight_record.get("values") or {}
+    lines.extend(["", "APPLIED INDICATOR WEIGHTS"])
+    lines.append(
+        f"Method: {_safe_text(weight_record.get('method'))}; "
+        f"configured method: {_safe_text(weight_record.get('configured_method'))}; "
+        f"status: {_safe_text(weight_record.get('status'))}"
+    )
+    if weight_values:
+        lines.append(
+            ", ".join(
+                f"{indicator}={float(weight):.3f}"
+                for indicator, weight in weight_values.items()
+            )
+        )
+    else:
+        lines.append("No indicator weights were applied because the required input set is incomplete or unconfigured.")
 
     lines.extend(["", "MEMBERSHIP VALUES"])
     for variable, memberships in result.get("memberships", {}).items():
@@ -173,7 +204,7 @@ def assessment_report_lines(
         lines.append("No matching incident record is available in the loaded dataset.")
     for incident in incidents:
         lines.append(
-            f"{_safe_text(incident.get('incident_date'))} — "
+            f"{_safe_text(incident.get('incident_date'))} - "
             f"{_safe_text(incident.get('title', incident.get('incident_type')))} "
             f"[{_safe_text(incident.get('incident_type'))}; "
             f"severity {_safe_text(incident.get('severity'))}; "
@@ -209,24 +240,10 @@ def assessment_report_lines(
     lines.append(
         _provenance_line("Barangay boundary", sources.get("barangay_boundary"))
     )
-    for source in sources.get("hazard_datasets", []):
-        lines.append(
-            _provenance_line(
-                _safe_text(source.get("dataset_name", "Hazard dataset")), source
-            )
-        )
-    for source in sources.get("historical_incident_sources", []):
-        lines.append(
-            _provenance_line(
-                f"Historical incident {source.get('incident_id')}", source
-            )
-        )
-    for source in sources.get("clup_sources", []):
-        lines.append(
-            _provenance_line(
-                f"CLUP reference {source.get('reference_id')}", source
-            )
-        )
+    lines.append(
+        "Hazard source names, dates, retrieval states, URLs, attributions, and "
+        "cache status are listed with each hazard input above."
+    )
     fuzzy_source = sources.get("fuzzy_model", {})
     lines.append(
         "Fuzzy model: version="
@@ -245,138 +262,221 @@ def assessment_report_lines(
     lines.extend(
         f"- {_safe_text(item)}" for item in assessment.get("recommendations", [])
     )
-    lines.extend(
-        [
-            "",
-            "DISCLAIMER",
-            disclaimer,
-            "",
-            "Machine-readable assessment snapshot:",
-            json.dumps(
-                {
-                    "assessment_id": assessment.get("id"),
-                    "status": assessment.get("status"),
-                    "score": result.get("score"),
-                    "category": result.get("category"),
-                    "model_version": result.get("model_version"),
-                },
-                separators=(",", ":"),
-            ),
-        ]
-    )
+    lines.extend(["", "DISCLAIMER", disclaimer])
     return lines
 
 
-def _wrapped_lines(lines: Iterable[str], width: int = 94) -> list[str]:
-    wrapped: list[str] = []
-    for line in lines:
-        if not line:
-            wrapped.append("")
-            continue
-        wrapped.extend(
-            textwrap.wrap(
-                line,
-                width=width,
-                replace_whitespace=True,
-                drop_whitespace=True,
-                break_long_words=False,
-                break_on_hyphens=False,
+def generate_pdf(
+    lines: Iterable[str],
+    title: str = "GeoSafe-FIS Assessment",
+    assessment: Mapping[str, Any] | None = None,
+) -> bytes:
+    """Generate a branded, readable multi-page assessment report."""
+    report_lines = list(lines)
+    output = BytesIO()
+    page_width, page_height = letter
+    pdf = canvas.Canvas(
+        output,
+        pagesize=letter,
+        pageCompression=0,
+        pdfVersion=(1, 4),
+    )
+    pdf.setTitle(title)
+    pdf.setAuthor("GeoSafe-FIS research project")
+    pdf.setSubject("Preliminary multi-hazard screening report")
+
+    navy = HexColor("#073B4C")
+    teal = HexColor("#147D72")
+    amber = HexColor("#D28A1E")
+    ink = HexColor("#1C2D32")
+    muted = HexColor("#60747A")
+    border = HexColor("#D8E2DF")
+    pale = HexColor("#F2F7F5")
+    page_number = 0
+    y = 0.0
+    locator_drawn = False
+
+    section_names = {
+        "SELECTED LOCATION",
+        "HAZARD INPUTS",
+        "FUZZY RESULT",
+        "APPLIED INDICATOR WEIGHTS",
+        "MEMBERSHIP VALUES",
+        "ACTIVATED FUZZY RULES",
+        "HISTORICAL INCIDENT CONTEXT",
+        "CLUP REFERENCE CONTEXT",
+        "SOURCE INFORMATION",
+        "DATA-QUALITY AND AVAILABILITY NOTICES",
+        "PLANNING-ORIENTED RECOMMENDATIONS",
+        "DISCLAIMER",
+    }
+
+    def draw_page_frame() -> None:
+        nonlocal page_number, y
+        page_number += 1
+        pdf.setFillColor(navy)
+        pdf.rect(0, page_height - 76, page_width, 76, fill=1, stroke=0)
+        pdf.setStrokeColor(HexColor("#68C8B2"))
+        pdf.setLineWidth(2)
+        pdf.circle(49, page_height - 38, 17, fill=0, stroke=1)
+        pdf.setFillColor(HexColor("#68C8B2"))
+        pdf.circle(49, page_height - 38, 5, fill=1, stroke=0)
+        pdf.setFillColor(HexColor("#FFFFFF"))
+        pdf.setFont("Helvetica-Bold", 17 if page_number == 1 else 12)
+        pdf.drawString(76, page_height - 34, "GeoSafe-FIS Assessment Report")
+        pdf.setFont("Helvetica", 8.5)
+        pdf.setFillColor(HexColor("#CBE4DE"))
+        pdf.drawString(
+            76,
+            page_height - 50,
+            "Preliminary multi-hazard screening - Basey, Samar",
+        )
+        pdf.setStrokeColor(border)
+        pdf.setLineWidth(1)
+        pdf.line(42, 35, page_width - 42, 35)
+        pdf.setFillColor(muted)
+        pdf.setFont("Helvetica", 7.5)
+        pdf.drawString(42, 22, "Research prototype - verify against authoritative sources")
+        pdf.drawRightString(page_width - 42, 22, f"Page {page_number}")
+        y = page_height - 94
+
+    def new_page() -> None:
+        if page_number:
+            pdf.showPage()
+        draw_page_frame()
+
+    def ensure_space(height: float) -> None:
+        if y - height < 48:
+            new_page()
+
+    def wrap_for_width(
+        value: str, font_name: str, font_size: float, width: float
+    ) -> list[str]:
+        words = value.split()
+        if not words:
+            return [""]
+        rows: list[str] = []
+        current = words[0]
+        for word in words[1:]:
+            candidate = f"{current} {word}"
+            if stringWidth(candidate, font_name, font_size) <= width:
+                current = candidate
+            else:
+                rows.append(current)
+                current = word
+        rows.append(current)
+        return rows
+
+    def draw_locator_snapshot() -> None:
+        nonlocal y, locator_drawn
+        if locator_drawn or not assessment:
+            return
+        ensure_space(118)
+        location = assessment.get("location", {})
+        hazards = list(assessment.get("hazards", []))
+        box_y = y - 103
+        pdf.setFillColor(pale)
+        pdf.setStrokeColor(border)
+        pdf.roundRect(42, box_y, page_width - 84, 96, 8, fill=1, stroke=1)
+        pdf.setFillColor(navy)
+        pdf.setFont("Helvetica-Bold", 9)
+        pdf.drawString(54, box_y + 78, "LOCATION AND LAYER SNAPSHOT")
+        grid_x, grid_y, grid_w, grid_h = 54, box_y + 13, 205, 56
+        pdf.setStrokeColor(HexColor("#C7DAD5"))
+        for offset in range(0, 206, 41):
+            pdf.line(grid_x + offset, grid_y, grid_x + offset, grid_y + grid_h)
+        for offset in range(0, 57, 14):
+            pdf.line(grid_x, grid_y + offset, grid_x + grid_w, grid_y + offset)
+        pdf.setFillColor(teal)
+        pdf.circle(grid_x + 112, grid_y + 29, 6, fill=1, stroke=0)
+        pdf.setFillColor(navy)
+        pdf.setFont("Helvetica-Bold", 8)
+        pdf.drawString(
+            276,
+            box_y + 60,
+            _safe_text((location.get("barangay") or {}).get("name")),
+        )
+        pdf.setFont("Helvetica", 7.5)
+        pdf.setFillColor(muted)
+        pdf.drawString(
+            276,
+            box_y + 48,
+            f"{_safe_text(location.get('latitude'))}, {_safe_text(location.get('longitude'))}",
+        )
+        pdf.drawString(276, box_y + 35, "Assessment-state locator (schematic)")
+        chip_x = 276
+        for hazard in hazards[:3]:
+            hazard_type = _safe_text(hazard.get("hazard_type")).replace("_", " ").title()
+            status = _safe_text(hazard.get("availability_status"))
+            label = f"{hazard_type[:14]}: {status[:11]}"
+            chip_width = min(
+                92, max(68, stringWidth(label, "Helvetica", 5.8) + 10)
             )
-            or [""]
+            pdf.setFillColor(
+                HexColor("#E4F1ED")
+                if status == "available"
+                else HexColor("#FFF0D0")
+            )
+            pdf.roundRect(chip_x, box_y + 14, chip_width, 14, 5, fill=1, stroke=0)
+            pdf.setFillColor(ink)
+            pdf.setFont("Helvetica", 5.8)
+            pdf.drawCentredString(chip_x + chip_width / 2, box_y + 18.5, label)
+            chip_x += chip_width + 5
+        y = box_y - 8
+        locator_drawn = True
+
+    new_page()
+    for index, raw_line in enumerate(report_lines):
+        line_text = _safe_text(raw_line)
+        if index == 0 and line_text == "GeoSafe-FIS Assessment Report":
+            continue
+        if index == 1 and "screening prototype" in line_text:
+            pdf.setFillColor(muted)
+            pdf.setFont("Helvetica", 8)
+            pdf.drawString(42, y, line_text)
+            y -= 17
+            continue
+        if not line_text:
+            if (
+                index + 1 < len(report_lines)
+                and _safe_text(report_lines[index + 1]) in section_names
+            ):
+                continue
+            y -= 5
+            continue
+        if line_text in section_names:
+            section_space = {
+                "APPLIED INDICATOR WEIGHTS": 58,
+                "FUZZY RESULT": 62,
+                "DISCLAIMER": 72,
+            }.get(line_text, 42)
+            ensure_space(section_space)
+            y -= 5
+            pdf.setStrokeColor(amber)
+            pdf.setLineWidth(2)
+            pdf.line(42, y + 11, 47, y + 11)
+            pdf.setFillColor(navy)
+            pdf.setFont("Helvetica-Bold", 10)
+            pdf.drawString(53, y + 7, line_text)
+            y -= 14
+            continue
+
+        indented = line_text.startswith("  ") or line_text.startswith("-")
+        x = 55 if indented else 42
+        font_name = "Helvetica"
+        font_size = 8.2
+        rows = wrap_for_width(
+            line_text.strip(), font_name, font_size, page_width - x - 42
         )
-    return wrapped
+        ensure_space(len(rows) * 10.5 + 2)
+        pdf.setFillColor(ink)
+        pdf.setFont(font_name, font_size)
+        for row in rows:
+            pdf.drawString(x, y, row)
+            y -= 10.5
+        y -= 1.5
+        if line_text.startswith("Barangay:"):
+            draw_locator_snapshot()
 
-
-def _pdf_escape(line: str) -> bytes:
-    sanitized = (
-        line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-    )
-    return sanitized.encode("cp1252", errors="replace")
-
-
-def generate_pdf(lines: Iterable[str], title: str = "GeoSafe-FIS Assessment") -> bytes:
-    """Generate a standards-compatible, text-only, multi-page PDF."""
-    report_lines = _wrapped_lines(lines)
-    lines_per_page = 54
-    pages = [
-        report_lines[index : index + lines_per_page]
-        for index in range(0, len(report_lines), lines_per_page)
-    ] or [["No report content is available."]]
-
-    # Object numbers: 1 catalog, 2 pages, 3 font, then page/content pairs.
-    objects: dict[int, bytes] = {}
-    page_numbers: list[int] = []
-    next_number = 4
-    for page_index, page_lines in enumerate(pages, start=1):
-        page_number = next_number
-        content_number = next_number + 1
-        next_number += 2
-        page_numbers.append(page_number)
-        commands = [
-            b"BT",
-            b"/F1 10 Tf",
-            b"13 TL",
-            b"50 760 Td",
-        ]
-        for line_index, line in enumerate(page_lines):
-            if line_index:
-                commands.append(b"T*")
-            commands.append(b"(" + _pdf_escape(line) + b") Tj")
-        commands.extend(
-            [
-                b"ET",
-                b"BT /F1 8 Tf 500 24 Td "
-                + _pdf_escape(f"Page {page_index} of {len(pages)}")
-                + b" Tj ET",
-            ]
-        )
-        stream = b"\n".join(commands)
-        objects[page_number] = (
-            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
-            f"/Resources << /Font << /F1 3 0 R >> >> "
-            f"/Contents {content_number} 0 R >>"
-        ).encode("ascii")
-        objects[content_number] = (
-            f"<< /Length {len(stream)} >>\nstream\n".encode("ascii")
-            + stream
-            + b"\nendstream"
-        )
-
-    kids = " ".join(f"{number} 0 R" for number in page_numbers)
-    objects[1] = b"<< /Type /Catalog /Pages 2 0 R >>"
-    objects[2] = (
-        f"<< /Type /Pages /Count {len(page_numbers)} /Kids [{kids}] >>"
-    ).encode("ascii")
-    objects[3] = b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
-
-    metadata_number = next_number
-    created = datetime.now(timezone.utc).strftime("D:%Y%m%d%H%M%SZ")
-    safe_title = _pdf_escape(title)
-    objects[metadata_number] = (
-        b"<< /Title (" + safe_title + b") /Producer (GeoSafe-FIS) "
-        b"/CreationDate (" + created.encode("ascii") + b") >>"
-    )
-
-    pdf = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
-    offsets: dict[int, int] = {}
-    for number in sorted(objects):
-        offsets[number] = len(pdf)
-        pdf.extend(f"{number} 0 obj\n".encode("ascii"))
-        pdf.extend(objects[number])
-        pdf.extend(b"\nendobj\n")
-    xref_offset = len(pdf)
-    max_number = max(objects)
-    pdf.extend(f"xref\n0 {max_number + 1}\n".encode("ascii"))
-    pdf.extend(b"0000000000 65535 f \n")
-    for number in range(1, max_number + 1):
-        if number in offsets:
-            pdf.extend(f"{offsets[number]:010d} 00000 n \n".encode("ascii"))
-        else:
-            pdf.extend(b"0000000000 00000 f \n")
-    pdf.extend(
-        (
-            f"trailer\n<< /Size {max_number + 1} /Root 1 0 R "
-            f"/Info {metadata_number} 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n"
-        ).encode("ascii")
-    )
-    return bytes(pdf)
+    pdf.save()
+    return output.getvalue()

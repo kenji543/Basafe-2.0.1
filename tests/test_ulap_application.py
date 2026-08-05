@@ -178,8 +178,11 @@ class UlapApplicationIntegrationTests(unittest.TestCase):
                 persisted = connection.execute(
                     """
                     SELECT availability_status, source_metadata_json
-                    FROM assessment_inputs
-                    WHERE assessment_id = ? AND variable_slug = 'ground_shaking'
+                    FROM assessment_inputs AS input
+                    JOIN assessments AS assessment
+                      ON assessment.id = input.assessment_id
+                    WHERE assessment.public_token = ?
+                      AND input.variable_slug = 'ground_shaking'
                     """,
                     (assessment["id"],),
                 ).fetchone()

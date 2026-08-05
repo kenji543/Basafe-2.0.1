@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 import hashlib
 import math
+from copy import deepcopy
 from collections.abc import Mapping
+from itertools import product
 from pathlib import Path
 from typing import Any
 
@@ -57,12 +59,67 @@ class FuzzyModel:
     """Validated fuzzy model that returns all intermediate reasoning values."""
 
     def __init__(self, configuration: Mapping[str, Any]):
-        self.configuration = dict(configuration)
+        self.configuration = deepcopy(dict(configuration))
+        self._expand_generated_rules()
         self._validate()
         self.inputs = {
             variable["id"]: variable for variable in self.configuration["inputs"]
         }
         self.output = self.configuration["output"]
+
+    def _expand_generated_rules(self) -> None:
+        """Build the complete, auditable ordinal rule grid when configured."""
+        generation = self.configuration.get("rule_generation")
+        if not generation:
+            return
+        if generation.get("method") != "complete_monotonic_ordinal_grid":
+            raise ModelConfigurationError("Unsupported fuzzy rule-generation method.")
+
+        terms = list(generation.get("ordered_input_terms", []))
+        consequents = list(generation.get("consequent_by_ordinal_sum", []))
+        input_ids = [
+            variable.get("id")
+            for variable in self.configuration.get("inputs", [])
+        ]
+        expected_consequents = len(input_ids) * (len(terms) - 1) + 1
+        if not input_ids or not terms or len(consequents) != expected_consequents:
+            raise ModelConfigurationError(
+                "The monotonic rule grid needs ordered terms and one consequent "
+                "for each ordinal sum."
+            )
+
+        rules: list[dict[str, Any]] = []
+        for number, combination in enumerate(
+            product(terms, repeat=len(input_ids)), start=1
+        ):
+            ordinal_sum = sum(terms.index(term) for term in combination)
+            consequent = consequents[ordinal_sum]
+            antecedent = " AND ".join(
+                f"{variable_id.replace('_', ' ')} is {term}"
+                for variable_id, term in zip(input_ids, combination)
+            )
+            rules.append(
+                {
+                    "id": f"R{number:03d}",
+                    "statement": (
+                        f"IF {antecedent} THEN vulnerability is "
+                        f"{consequent.replace('_', ' ')}"
+                    ),
+                    "operator": "all",
+                    "conditions": [
+                        [variable_id, term]
+                        for variable_id, term in zip(input_ids, combination)
+                    ],
+                    "consequent": consequent,
+                    "weight": 1.0,
+                    "rationale": (
+                        "Systematically generated from the complete monotonic ordinal "
+                        f"grid; antecedent severity sum {ordinal_sum} maps to "
+                        f"{consequent.replace('_', ' ')}."
+                    ),
+                }
+            )
+        self.configuration["rules"] = rules
 
     @classmethod
     def from_file(cls, path: str | Path) -> "FuzzyModel":
@@ -304,6 +361,29 @@ class FuzzyModel:
                 self.configuration.get("validation_notes", [])
             ),
         }
+        weighting = self.configuration.get("indicator_weighting", {})
+        configured_weights = weighting.get("weights") or {}
+        if configured_weights:
+            indicator_weights = {
+                variable_id: float(configured_weights[variable_id])
+                for variable_id in self.inputs
+            }
+            applied_weighting_method = weighting.get("method", "configured")
+        else:
+            equal_weight = 1.0 / len(self.inputs)
+            indicator_weights = {
+                variable_id: equal_weight for variable_id in self.inputs
+            }
+            applied_weighting_method = "equal_weight_research_baseline"
+        base_result["indicator_weights"] = {
+            "method": applied_weighting_method,
+            "values": {
+                key: round(value, 6)
+                for key, value in indicator_weights.items()
+            },
+            "configured_method": weighting.get("method"),
+            "status": weighting.get("status"),
+        }
         if missing_inputs:
             base_result.update(
                 {
@@ -321,9 +401,11 @@ class FuzzyModel:
             return base_result
 
         evaluated_rules: list[dict[str, Any]] = []
+        maximum_indicator_weight = max(indicator_weights.values())
         for rule in self.configuration["rules"]:
             condition_values = [
                 available_memberships[variable_id][term]
+                * (indicator_weights[variable_id] / maximum_indicator_weight)
                 for variable_id, term in rule["conditions"]
             ]
             raw_activation = (
@@ -342,6 +424,17 @@ class FuzzyModel:
                             "variable": variable_id,
                             "term": term,
                             "membership": available_memberships[variable_id][term],
+                            "indicator_weight": round(
+                                indicator_weights[variable_id], 6
+                            ),
+                            "weighted_membership": round(
+                                available_memberships[variable_id][term]
+                                * (
+                                    indicator_weights[variable_id]
+                                    / maximum_indicator_weight
+                                ),
+                                6,
+                            ),
                         }
                         for variable_id, term in rule["conditions"]
                     ],
@@ -411,7 +504,7 @@ class FuzzyModel:
                 "evaluated_rules": evaluated_rules,
                 "activated_rules": activated_rules,
                 "message": (
-                    "The score is a normalized screening index from 1 to 100, "
+                    "The score is a normalized relative screening index from 0 to 100, "
                     "not a probability or engineering risk estimate."
                 ),
             }

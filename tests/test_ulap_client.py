@@ -65,6 +65,24 @@ class ArcGISClientTests(unittest.TestCase):
         self.assertEqual(parameters["spatialRel"], ["esriSpatialRelIntersects"])
         self.assertEqual(parameters["returnGeometry"], ["false"])
 
+    def test_identify_fallback_is_scoped_to_one_layer_and_extent(self) -> None:
+        transport = ScriptedTransport([transport_response({"results": []})])
+        arcgis = client(transport)
+        arcgis.identify_features(
+            LAYER.rsplit("/", 1)[0],
+            layer_id=0,
+            geometry="124.9,11.2,125.3,11.6",
+            geometry_type="esriGeometryEnvelope",
+            map_extent=(124.9, 11.2, 125.3, 11.6),
+        )
+
+        requested = transport.urls[0]
+        self.assertTrue(urlsplit(requested).path.endswith("/MapServer/identify"))
+        parameters = parse_qs(urlsplit(requested).query)
+        self.assertEqual(parameters["layers"], ["all:0"])
+        self.assertEqual(parameters["returnGeometry"], ["true"])
+        self.assertEqual(parameters["geometryPrecision"], ["6"])
+
     def test_exact_domain_allowlist_blocks_ssrf(self) -> None:
         transport = ScriptedTransport([])
         with self.assertRaises(UrlNotAllowedError):

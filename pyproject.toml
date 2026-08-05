@@ -4,12 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "geosafe-fis"
-version = "0.4.0"
+version = "0.5.0"
 description = "Focused explainable Web-GIS vulnerability screening prototype"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "pydantic>=2.7,<3",
+  "Pillow>=10,<13",
+  "reportlab>=4.2,<5",
 ]
 
 [project.optional-dependencies]

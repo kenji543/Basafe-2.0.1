@@ -1,0 +1,42 @@
+{
+  "currentVersion": 10.51,
+  "id": 0,
+  "name": "Ground Shaking (Deterministic)",
+  "type": "Feature Layer",
+  "geometryType": "esriGeometryPolygon",
+  "extent": {
+    "xmin": 118.064236348,
+    "ymin": 4.587294497,
+    "xmax": 126.604965597,
+    "ymax": 21.121885479,
+    "spatialReference": {"wkid": 4326, "latestWkid": 4326}
+  },
+  "copyrightText": "Acknowledge Philippine Institute of Volcanology and Seismology (As of July 2018).",
+  "capabilities": "Map,Query",
+  "supportedQueryFormats": "JSON, AMF, geoJSON",
+  "maxRecordCount": 1000,
+  "fields": [
+    {"name": "objectid", "type": "esriFieldTypeOID", "domain": null},
+    {
+      "name": "peiscode",
+      "type": "esriFieldTypeString",
+      "domain": {
+        "type": "codedValue",
+        "codedValues": [
+          {"code": "01", "name": "I"},
+          {"code": "02", "name": "II"},
+          {"code": "03", "name": "III"},
+          {"code": "04", "name": "IV"},
+          {"code": "05", "name": "V"},
+          {"code": "06", "name": "VI"},
+          {"code": "07", "name": "VII"},
+          {"code": "08", "name": "VIII"},
+          {"code": "09", "name": "IX"},
+          {"code": "10", "name": "X"}
+        ]
+      }
+    },
+    {"name": "peisdcode", "type": "esriFieldTypeString", "domain": null},
+    {"name": "province", "type": "esriFieldTypeString", "domain": null}
+  ]
+}

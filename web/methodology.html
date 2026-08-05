@@ -4,16 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="GeoSafe-FIS fuzzy methodology, data sources, and limitations.">
-  <meta name="theme-color" content="#123c36">
+  <meta name="theme-color" content="#073b4c">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon-192.png">
   <title>Methodology &amp; limitations | GeoSafe-FIS</title>
-  <link rel="stylesheet" href="./styles.css">
-  <script defer src="./methodology.js"></script>
+  <link rel="stylesheet" href="/styles.css?v=0.5.14">
+  <script defer src="/methodology.js?v=0.5.11"></script>
+  <script defer src="/pwa.js?v=0.5.11"></script>
 </head>
 <body data-api-base="/api/v1" class="methodology-page">
   <a class="skip-link" href="#main-content">Skip to methodology</a>
 
   <header class="app-header">
-    <a class="brand" href="./index.html" aria-label="GeoSafe-FIS assessment home">
+    <a class="brand" href="/" aria-label="GeoSafe-FIS public home">
       <span class="brand-mark" aria-hidden="true">
         <svg viewBox="0 0 40 40" role="img">
           <path d="M20 3.5c-7 0-12.7 5.5-12.7 12.4 0 9.2 12.7 20.4 12.7 20.4s12.7-11.2 12.7-20.4C32.7 9 27 3.5 20 3.5Z"/>
@@ -23,12 +26,14 @@
       </span>
       <span>
         <strong>GeoSafe-FIS</strong>
-        <small>Basey vulnerability screening</small>
+        <small>Public multi-hazard screening</small>
       </span>
     </a>
     <nav class="primary-nav" aria-label="Primary navigation">
-      <a href="./index.html">Assessment</a>
-      <a class="active" href="./methodology.html" aria-current="page">Methodology &amp; limitations</a>
+      <a href="/">Home</a>
+      <a href="/map">Map</a>
+      <a href="/data-sources">Sources</a>
+      <a class="active" href="/methodology" aria-current="page">Methodology</a>
     </nav>
     <div id="method-status" class="system-status is-checking" role="status" aria-live="polite">
       <span class="status-dot" aria-hidden="true"></span>
@@ -45,7 +50,7 @@
       <a href="#sources">Data sources</a>
       <a href="#quality">Data quality</a>
       <a href="#limitations">Limitations &amp; disclaimer</a>
-      <a class="button primary" href="./index.html">Open assessment map</a>
+      <a class="button primary" href="/map">Open assessment map</a>
     </aside>
 
     <article class="document-content">
@@ -56,7 +61,7 @@
         <div class="model-meta">
           <div><span>Model version</span><strong id="model-version">Not reported</strong></div>
           <div><span>Defuzzification</span><strong id="defuzzification">Not reported</strong></div>
-          <div><span>Output range</span><strong>1–100</strong></div>
+          <div><span>Output range</span><strong>0–100</strong></div>
           <div><span>Record loaded</span><strong id="model-loaded-at">Pending</strong></div>
         </div>
       </header>
@@ -72,7 +77,7 @@
           <li><span>02</span><div><strong>Retrieve live evidence</strong><p>The backend queries verified ULAP services and records the raw code, official label, status, layer, attribution, retrieval time, and cache state.</p></div></li>
           <li><span>03</span><div><strong>Transform transparently</strong><p>A configured GeoSafe-FIS normalization converts an available official label into a separate internal model value and fuzzy memberships.</p></div></li>
           <li><span>04</span><div><strong>Evaluate rules</strong><p>Configured rules are activated, weighted, aggregated, and preserved with their activation strengths.</p></div></li>
-          <li><span>05</span><div><strong>Explain the result</strong><p>A 1–100 score and descriptive category are presented with the evidence, rules, missing-data status, and cautious recommendations.</p></div></li>
+          <li><span>05</span><div><strong>Explain the result</strong><p>A 0–100 score and descriptive category are presented with the evidence, rules, missing-data status, and cautious recommendations.</p></div></li>
         </ol>
       </section>
 
@@ -144,7 +149,7 @@
         </ul>
         <div class="disclaimer-box">
           <h3>Disclaimer</h3>
-          <p>This output is a preliminary decision-support screening result based on the availability and classifications of the cited source datasets. It is not an official hazard certification, zoning approval, building-safety rating, structural assessment, engineering recommendation, or disaster forecast.</p>
+          <p>This report is a preliminary multi-hazard screening output based on selected available data. It does not certify that a location is safe or unsafe and does not replace official hazard, planning, engineering, geological, geotechnical, or regulatory assessment.</p>
         </div>
       </section>
     </article>
@@ -152,7 +157,8 @@
 
   <footer class="app-footer document-footer">
     <p>GeoSafe-FIS · Explainable Web-GIS screening for Basey, Samar</p>
-    <a href="./index.html">Return to assessment</a>
+    <a href="/map">Return to assessment</a>
   </footer>
+  <div id="offline-banner" class="offline-banner" role="status" hidden>You are offline. Previously viewed methodology may be available, but current source status requires a connection.</div>
 </body>
 </html>

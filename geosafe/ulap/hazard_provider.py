@@ -8,8 +8,14 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .arcgis_client import ArcGISClient
-from .errors import UlapError
-from .models import CacheMetadata, FeatureCollectionResult, HazardResult, Status
+from .errors import UlapError, UlapInvalidResponseError
+from .models import (
+    CacheMetadata,
+    FeatureCollectionResult,
+    HazardResult,
+    PointQueryResult,
+    Status,
+)
 from .response_parser import (
     actual_field_name,
     decode_attributes,
@@ -74,13 +80,23 @@ class HazardProvider:
                 )
             domains = extract_coded_domains(metadata)
             live_domain = domains.get(field_name, {})
-            query = self.client.point_query(
-                definition.layer_url,
-                longitude,
-                latitude,
-                out_fields="*",
-                return_geometry=False,
-            )
+            try:
+                query = self.client.point_query(
+                    definition.layer_url,
+                    longitude,
+                    latitude,
+                    out_fields="*",
+                    return_geometry=False,
+                )
+            except UlapError as query_error:
+                query = self._identify_at_location(
+                    definition,
+                    field_name,
+                    live_domain,
+                    longitude,
+                    latitude,
+                    query_error,
+                )
         except UlapError as exc:
             return HazardResult(
                 hazard=hazard,
@@ -233,6 +249,77 @@ class HazardProvider:
             warnings=tuple(warnings),
             feature_count=len(attributes),
             cache=query.cache,
+        )
+
+    def _identify_at_location(
+        self,
+        definition: Any,
+        field_name: str,
+        live_domain: dict[str, str],
+        longitude: float,
+        latitude: float,
+        query_error: UlapError,
+    ) -> PointQueryResult:
+        if not definition.service_url or definition.layer_id is None:
+            raise query_error
+        delta = 0.05
+        extent = (
+            max(-180.0, longitude - delta),
+            max(-90.0, latitude - delta),
+            min(180.0, longitude + delta),
+            min(90.0, latitude + delta),
+        )
+        response = self.client.identify_features(
+            definition.service_url,
+            layer_id=definition.layer_id,
+            geometry=f"{longitude:.8f},{latitude:.8f}",
+            geometry_type="esriGeometryPoint",
+            map_extent=extent,
+            return_geometry=False,
+            tolerance=0,
+        )
+        results = response.data.get("results")
+        if not isinstance(results, list):
+            raise UlapInvalidResponseError(
+                definition.service_url,
+                "ArcGIS identify response does not contain a results array.",
+            )
+        reverse_domain = {label: code for code, label in live_domain.items()}
+        features: list[dict[str, Any]] = []
+        for result in results:
+            if not isinstance(result, dict) or result.get("layerId") != definition.layer_id:
+                continue
+            attributes = result.get("attributes")
+            if not isinstance(attributes, dict):
+                raise UlapInvalidResponseError(
+                    definition.service_url,
+                    "ArcGIS identify returned invalid feature attributes.",
+                )
+            official_label = str(result.get("value") or "").strip()
+            raw_code = reverse_domain.get(official_label)
+            properties = dict(attributes)
+            properties[field_name] = (
+                raw_code if raw_code is not None else f"unmapped:{official_label}"
+            )
+            features.append({"attributes": properties})
+        warnings = [
+            "The layer rejected its advertised Query operation; the official "
+            "MapServer identify operation supplied the point result instead."
+        ]
+        if len(features) > 1:
+            warnings.append(
+                f"{len(features)} intersecting features were returned; their "
+                "classification codes must agree."
+            )
+        return PointQueryResult(
+            status=Status.AVAILABLE if features else Status.NO_INTERSECTION,
+            source_url=definition.layer_url,
+            retrieved_at=response.responded_at,
+            features=tuple(features),
+            feature_count=len(features),
+            multiple_intersections=len(features) > 1,
+            cache=response.cache,
+            warnings=tuple(warnings),
         )
 
     def all_at_location(

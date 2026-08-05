@@ -192,12 +192,15 @@ class HazardProviderTests(unittest.TestCase):
         self.assertEqual(result.raw_code, "99")
         self.assertIsNone(result.official_label)
 
-    def test_missing_ground_shaking_blocks_complete_assessment(self) -> None:
-        stub = HazardStubClient({}, {})
+    def test_ground_shaking_point_without_polygon_blocks_complete_assessment(self) -> None:
+        stub = HazardStubClient(
+            fixture("ground_shaking_layer_metadata.json"),
+            fixture("point_zero_features.json"),
+        )
         provider = HazardProvider(stub, self.registry)
         ground = provider.at_location("ground_shaking", 125.05, 11.28)
-        self.assertEqual(ground.status, Status.UNAVAILABLE)
-        self.assertEqual(stub.calls, 0)
+        self.assertEqual(ground.status, Status.NO_INTERSECTION)
+        self.assertEqual(stub.calls, 2)
         gate = provider.assessment_gate(
             {
                 "flood": HazardProvider(

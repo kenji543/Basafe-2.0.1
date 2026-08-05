@@ -6,6 +6,11 @@ import argparse
 import logging
 import mimetypes
 import os
+import re
+import sys
+import threading
+import time
+from collections import defaultdict, deque
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -21,6 +26,7 @@ from .ulap.integration import UlapIntegration
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LOGGER = logging.getLogger("geosafe")
 MAX_REQUEST_BYTES = 1_048_576
+RATE_LIMIT_WINDOW_SECONDS = 60
 
 
 def _environment_flag(name: str, default: bool = False) -> bool:
@@ -33,6 +39,19 @@ def _environment_flag(name: str, default: bool = False) -> bool:
     if normalized in {"0", "false", "no", "off"}:
         return False
     raise ValueError(f"{name} must be true or false.")
+
+
+def _environment_positive_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer.") from exc
+    if value <= 0:
+        raise ValueError(f"{name} must be positive.")
+    return value
 
 
 class GeoSafeServer(ThreadingHTTPServer):
@@ -49,7 +68,45 @@ class GeoSafeServer(ThreadingHTTPServer):
     ):
         self.api = api
         self.web_root = web_root.resolve()
+        self.api_rate_limit = _environment_positive_int(
+            "GEOSAFE_API_REQUESTS_PER_MINUTE", 240
+        )
+        self.assessment_rate_limit = _environment_positive_int(
+            "GEOSAFE_ASSESSMENTS_PER_MINUTE", 12
+        )
+        self._rate_limit_lock = threading.Lock()
+        self._rate_limit_windows: dict[
+            tuple[str, str], deque[float]
+        ] = defaultdict(deque)
         super().__init__(server_address, GeoSafeRequestHandler)
+
+    def check_rate_limit(
+        self, client_ip: str, bucket: str
+    ) -> tuple[bool, int, int, int]:
+        limit = (
+            self.assessment_rate_limit
+            if bucket == "assessment"
+            else self.api_rate_limit
+        )
+        now = time.monotonic()
+        cutoff = now - RATE_LIMIT_WINDOW_SECONDS
+        key = (client_ip, bucket)
+        with self._rate_limit_lock:
+            requests = self._rate_limit_windows[key]
+            while requests and requests[0] <= cutoff:
+                requests.popleft()
+            if len(requests) >= limit:
+                retry_after = max(1, int(RATE_LIMIT_WINDOW_SECONDS - (now - requests[0])) + 1)
+                return False, limit, 0, retry_after
+            requests.append(now)
+            return True, limit, max(0, limit - len(requests)), 0
+
+    def handle_error(self, request: object, client_address: object) -> None:
+        error = sys.exc_info()[1]
+        if isinstance(error, (BrokenPipeError, ConnectionResetError)):
+            LOGGER.debug("Client disconnected before the response completed")
+            return
+        super().handle_error(request, client_address)
 
 
 class GeoSafeRequestHandler(BaseHTTPRequestHandler):
@@ -62,15 +119,18 @@ class GeoSafeRequestHandler(BaseHTTPRequestHandler):
             "X-Content-Type-Options": "nosniff",
             "X-Frame-Options": "DENY",
             "Referrer-Policy": "strict-origin-when-cross-origin",
-            "Permissions-Policy": "geolocation=()",
+            "Permissions-Policy": "geolocation=(self)",
             "Content-Security-Policy": (
                 "default-src 'self'; "
                 "script-src 'self' https://unpkg.com; "
                 "style-src 'self' 'unsafe-inline' https://unpkg.com; "
-                "img-src 'self' data: blob: https://*.tile.openstreetmap.org; "
-                "connect-src 'self' https://*.tile.openstreetmap.org; "
+                "img-src 'self' data: blob: https://*.tile.openstreetmap.org "
+                "https://server.arcgisonline.com https://services.arcgisonline.com "
+                "https://ulap-hazards.georisk.gov.ph; "
+                "connect-src 'self' https://*.tile.openstreetmap.org "
+                "https://server.arcgisonline.com https://services.arcgisonline.com; "
                 "font-src 'self'; object-src 'none'; base-uri 'self'; "
-                "frame-ancestors 'none'"
+                "frame-ancestors 'none'; worker-src 'self'; manifest-src 'self'"
             ),
             **response.headers,
         }
@@ -82,6 +142,33 @@ class GeoSafeRequestHandler(BaseHTTPRequestHandler):
 
     def _api_response(self, method: str) -> Response:
         split = urlsplit(self.path)
+        bucket = (
+            "assessment"
+            if method == "POST"
+            and split.path.rstrip("/") in {
+                "/api/assessments",
+                "/api/v1/assessments",
+            }
+            else "api"
+        )
+        allowed, limit, remaining, retry_after = self.server.check_rate_limit(
+            self.client_address[0], bucket
+        )
+        if not allowed:
+            return Response.json(
+                {
+                    "error": {
+                        "code": "rate_limit_exceeded",
+                        "message": "Too many requests. Wait before trying again.",
+                    }
+                },
+                status=429,
+                headers={
+                    "Retry-After": str(retry_after),
+                    "RateLimit-Limit": str(limit),
+                    "RateLimit-Remaining": "0",
+                },
+            )
         body = b""
         if method in {"POST", "PUT", "PATCH"}:
             raw_length = self.headers.get("Content-Length")
@@ -130,10 +217,24 @@ class GeoSafeRequestHandler(BaseHTTPRequestHandler):
         route = split.path
         aliases = {
             "/": "index.html",
+            "/map": "map.html",
+            "/map/": "map.html",
             "/methodology": "methodology.html",
             "/methodology/": "methodology.html",
+            "/data-sources": "info.html",
+            "/data-sources/": "info.html",
+            "/limitations": "info.html",
+            "/limitations/": "info.html",
+            "/about": "info.html",
+            "/about/": "info.html",
+            "/privacy": "info.html",
+            "/privacy/": "info.html",
+            "/offline": "info.html",
+            "/offline/": "info.html",
         }
         relative = aliases.get(route, route.lstrip("/"))
+        if re.fullmatch(r"/assessment/[A-Za-z0-9_-]{20,128}/?", route):
+            relative = "map.html"
         if not relative or "\x00" in relative:
             self._send(
                 Response.json(
@@ -168,6 +269,8 @@ class GeoSafeRequestHandler(BaseHTTPRequestHandler):
         content_type, _ = mimetypes.guess_type(candidate.name)
         if candidate.suffix == ".js":
             content_type = "text/javascript"
+        elif candidate.suffix == ".webmanifest":
+            content_type = "application/manifest+json"
         self._send(
             Response(
                 200,
@@ -270,6 +373,7 @@ def create_application(
     *,
     enable_ulap: bool = True,
     allow_test_fixtures: bool = False,
+    runtime_data_mode: str | None = None,
 ) -> tuple[Api, Repository, FuzzyModel]:
     model = FuzzyModel.from_file(
         model_path
@@ -302,6 +406,10 @@ def create_application(
         model,
         ulap,
         allow_test_fixtures=allow_test_fixtures,
+        runtime_data_mode=(
+            runtime_data_mode
+            or os.environ.get("GEOSAFE_RUNTIME_DATA_MODE", "snapshot")
+        ).strip().casefold(),
     )
     if ulap is not None and _environment_flag(
         "ULAP_LIVE_VALIDATION", default=False
@@ -343,10 +451,12 @@ def main() -> None:
     api, _, model = create_application(database_path=args.database)
     server = GeoSafeServer((args.host, args.port), api, Path(args.web_root))
     LOGGER.info(
-        "GeoSafe-FIS %s listening at http://%s:%s (unified interface; no user roles)",
+        "GeoSafe-FIS %s listening at http://%s:%s "
+        "(runtime data mode: %s; unified interface; no user roles)",
         model.version,
         args.host,
         args.port,
+        api.service.runtime_data_mode,
     )
     try:
         server.serve_forever()

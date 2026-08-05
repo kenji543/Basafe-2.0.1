@@ -564,6 +564,8 @@ class ArcGISClient:
         spatial_relationship: str = "esriSpatialRelIntersects",
         result_offset: int | None = None,
         result_record_count: int | None = None,
+        geometry_precision: int | None = None,
+        max_allowable_offset: float | None = None,
         cache_seconds: int | None = None,
     ) -> ArcGISResponse:
         if response_format not in {"json", "pjson", "geojson"}:
@@ -583,6 +585,8 @@ class ArcGISClient:
             "spatialRel": spatial_relationship if geometry is not None else None,
             "resultOffset": result_offset,
             "resultRecordCount": result_record_count,
+            "geometryPrecision": geometry_precision,
+            "maxAllowableOffset": max_allowable_offset,
         }
         return self.request_json(
             f"{layer_url.rstrip('/')}/query",
@@ -592,6 +596,57 @@ class ArcGISClient:
                 if cache_seconds is None
                 else int(cache_seconds)
             ),
+        )
+
+    def identify_features(
+        self,
+        service_url: str,
+        *,
+        layer_id: int,
+        geometry: str,
+        geometry_type: str,
+        map_extent: tuple[float, float, float, float],
+        return_geometry: bool = True,
+        tolerance: int = 0,
+    ) -> ArcGISResponse:
+        """Use the MapServer identify operation when layer Query is disabled.
+
+        Some public ArcGIS services advertise the Query capability but reject
+        every layer ``/query`` request.  Their MapServer ``/identify``
+        operation remains available and returns the same official feature
+        attributes and, when requested, complete polygon geometries.
+        """
+        if geometry_type not in {
+            "esriGeometryPoint",
+            "esriGeometryEnvelope",
+        }:
+            raise ValueError("identify geometry must be a point or envelope.")
+        if layer_id < 0 or tolerance < 0:
+            raise ValueError("layer_id and tolerance must be non-negative.")
+        xmin, ymin, xmax, ymax = (float(value) for value in map_extent)
+        for longitude, latitude in ((xmin, ymin), (xmax, ymax)):
+            _validate_coordinate(longitude, latitude)
+        if xmax <= xmin or ymax <= ymin:
+            raise ValueError("map_extent maximums must exceed minimums.")
+        parameters: dict[str, Any] = {
+            "geometry": geometry,
+            "geometryType": geometry_type,
+            "sr": 4326,
+            "layers": f"all:{layer_id}",
+            "tolerance": tolerance,
+            "mapExtent": f"{xmin},{ymin},{xmax},{ymax}",
+            "imageDisplay": "1600,1600,96",
+            "returnGeometry": return_geometry,
+            "returnZ": False,
+            "returnM": False,
+            "geometryPrecision": 6,
+            "maxAllowableOffset": 0.00005,
+            "f": "json",
+        }
+        return self.request_json(
+            f"{service_url.rstrip('/')}/identify",
+            parameters,
+            cache_seconds=self.query_cache_seconds,
         )
 
     def point_query(
@@ -685,6 +740,8 @@ class ArcGISClient:
         geometry: str | None = None,
         geometry_type: str | None = None,
         input_spatial_reference: int | None = None,
+        geometry_precision: int | None = None,
+        max_allowable_offset: float | None = None,
     ) -> PaginatedResult:
         if page_size <= 0 or max_pages <= 0:
             raise ValueError("page_size and max_pages must be positive.")
@@ -703,6 +760,8 @@ class ArcGISClient:
                 input_spatial_reference=input_spatial_reference,
                 result_offset=page_index * page_size,
                 result_record_count=page_size,
+                geometry_precision=geometry_precision,
+                max_allowable_offset=max_allowable_offset,
             )
             page_features = response_features(response.source_url, response.data)
             features.extend(page_features)

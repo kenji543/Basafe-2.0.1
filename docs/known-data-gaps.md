@@ -2,9 +2,10 @@
 
 ## 1. Release interpretation
 
-The application can demonstrate live-source retrieval and explain incomplete
-evidence. It cannot currently produce a defensible complete live three-hazard
-screening result because a verified ground-shaking source is missing.
+The application can produce a complete three-hazard demonstration result from
+local snapshots. It is not yet a defensible operational assessment because the
+ground-shaking layer is a limited-quality derivative of regional deterministic
+scenario maps and the fuzzy model has not been validated by domain experts.
 
 The gaps below are data and validation dependencies, not reasons to add an
 administrative portal, accounts, roles, approval screens, or browser upload
@@ -14,13 +15,14 @@ workflows.
 
 | Gap | Current evidence | Required resolution | Effect until resolved |
 | --- | --- | --- | --- |
-| Ground-shaking source | No ground-shaking, MMI, PEIS, PGA, PGV, or seismic-intensity endpoint was supplied or verified | Obtain an authorized endpoint/layer; verify field, unit/domain, agency, date, coverage, and attribution; approve a model transformation | `ground_shaking = unavailable`; every live three-hazard assessment is `incomplete`; score is null |
-| Ground-shaking transformation | Model source/field/mapping are deliberately null/empty | Qualified PHIVOLCS/seismology and model reviewers approve the source-to-index mapping and membership implications | No substitute or assumed value is allowed |
-| Fuzzy-model domain validation | Version `0.4.0-demo` mappings, functions, rules, weights, thresholds, and recommendations are capstone assumptions | Documented review and approval by qualified MGB, PHIVOLCS, geotechnical, DRRM, and planning specialists | Results remain demonstration screening only, even after all source values are available |
+| Flood query capability | On 2026-08-05 the layer advertised `Query`, but the operation returned ArcGIS error 400 | The synchronization client uses the same official service's working `identify` operation and stores the validated result locally; monitor metadata and classifications on every refresh | Runtime is no longer blocked by the rejected query; genuine no-intersection areas remain missing, never Low |
+| Ground-shaking coverage | The public PHIVOLCS ground-shaking feature layer has no Basey point coverage; four official Region VIII 2014 deterministic-scenario KMZ rasters do cover Basey | Replace the derived grid when PHIVOLCS supplies a current, authoritative Basey ground-shaking product; preserve scenario/date/resolution metadata | Current ground shaking is usable only as a `limited` demonstration input |
+| Ground-shaking transformation | `peiscode` I-X maps explicitly to model indices 10-100 | Qualified PHIVOLCS/seismology and model reviewers approve the scenario aggregation, PEIS extraction, source-to-index mapping, and membership implications | The mapping remains a transparent capstone assumption, not an official rating |
+| Fuzzy-model domain validation | Version `0.5.2-demo` mappings, functions, rules, weights, thresholds, and recommendations are capstone assumptions | Documented review and approval by qualified MGB, PHIVOLCS, geotechnical, DRRM, and planning specialists | Results remain demonstration screening only, even when all source values are available |
 
-Active Fault, distance to a fault, liquefaction, epicenters, generic seismic
-hazard, an invented intensity, zero, and the last successful result are
-explicitly prohibited substitutes.
+Active Fault, distance to a fault, liquefaction, epicenters, an invented
+intensity, zero, and the last successful result remain explicitly prohibited
+substitutes.
 
 ## 3. Supplied boundary gaps
 
@@ -102,7 +104,7 @@ Required work:
 4. import through the CLI with provenance and quality notices; and
 5. state that no matching record does not prove no incident occurred.
 
-Incident context remains non-numeric in model `0.4.0-demo`.
+Incident context remains non-numeric in model `0.5.1-demo`.
 
 ## 7. CLUP gap
 
@@ -118,7 +120,7 @@ Required work:
    municipality context; and
 5. import with source date, edition, limitations, and provenance.
 
-CLUP context remains non-numeric in model `0.4.0-demo`.
+CLUP context remains non-numeric in model `0.5.1-demo`.
 
 ## 8. Runtime reliability gaps
 

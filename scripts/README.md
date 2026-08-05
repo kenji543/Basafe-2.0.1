@@ -4,11 +4,45 @@ These command-line tools keep dataset preparation outside the Web-GIS
 interface. They create no accounts, roles, approval queues, or administrative
 pages.
 
+## Synchronize official-service snapshots
+
+Ordinary map and assessment requests use local snapshots and do not contact
+ULAP. Run synchronization deliberately during deployment or scheduled
+maintenance:
+
+```powershell
+python scripts/sync_ulap_snapshot.py `
+  --db data/geosafe.db `
+  --target municipal_boundary `
+  --target barangay_boundary `
+  --target flood `
+  --target liquefaction `
+  --target ground_shaking
+```
+
+Targets may be repeated and include `flood`, `liquefaction`, and
+`ground_shaking`. The synchronizer downloads only Basey-filtered boundary or
+hazard data, validates exact source codes against the versioned model mapping,
+then uses the standard strict importer. Flood can fall back from a rejected
+ArcGIS `Query` request to the official MapServer `identify` operation. Ground
+shaking is generated from four fixed, allowlisted official PHIVOLCS 2014
+Region VIII deterministic-scenario KMZs: their PEIS rasters are sampled into a
+roughly 550 m Basey grid and the maximum of the four scenario intensities is
+stored. This derivative is marked `limited`, not represented as an official
+PHIVOLCS vector product, and must be domain-validated before operational use.
+It never replaces an existing snapshot when download, schema, geometry, or
+mapping validation fails. A partial run exits with code `2` and reports each
+preserved target.
+
+The synchronized files are temporary; the durable copy, provenance, checksum,
+and import-batch metadata are stored in SQLite. Confirm source authority,
+currency, licensing, and fitness before operational deployment.
+
 ## No operational demonstration seed
 
 The repository intentionally has no development/demo seeder and ships no
-synthetic hazard polygons. Runtime hazard values must come from the configured
-GeoRisk Philippines ULAP services. Mock ArcGIS payloads exist only in isolated
+synthetic hazard polygons. Runtime hazard values must come from activated,
+validated local snapshots. Mock ArcGIS payloads exist only in isolated
 automated-test fixtures.
 
 Verify the live service registry with:

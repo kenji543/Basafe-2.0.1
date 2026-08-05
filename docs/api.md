@@ -45,7 +45,7 @@ Live hazard values retain:
 - transformation/model validation notes.
 
 Authorized imported hazards may additionally expose `normalized_fraction`
-from 0–1 and a `normalized_value` equal to that fraction multiplied by 100.
+from 0Ã¢â‚¬â€œ1 and a `normalized_value` equal to that fraction multiplied by 100.
 
 ### 2.2 Error object
 
@@ -237,7 +237,7 @@ The ground-shaking response is an empty FeatureCollection with
 
 Searches live PSA Basey barangay names/PSGC codes and WGS 84 coordinate pairs
 written as `latitude, longitude`. Search text must contain at least two
-characters. The limit defaults to 10 and must be 1–50.
+characters. The limit defaults to 10 and must be 1Ã¢â‚¬â€œ50.
 
 The prototype does not call a third-party geocoder. The response states that its scope is the loaded Basey data:
 
@@ -320,7 +320,7 @@ All of these coordinate shapes are accepted:
     "display_label": "Optional label",
     "selection_method": "search"
   },
-  "model_version": "0.4.0-demo"
+  "model_version": "0.5.1-demo"
 }
 ```
 
@@ -334,7 +334,7 @@ The response is the saved assessment snapshot with links:
 
 ```json
 {
-  "id": 1,
+  "id": "q1w2e3r4t5y6u7i8o9p0_privateToken",
   "created_at": "2026-07-23 08:00:00",
   "status": "incomplete",
   "location": {},
@@ -355,7 +355,7 @@ The response is the saved assessment snapshot with links:
           "label": "High Susceptibility"
         },
         "normalized_value": 75,
-        "model_version": "0.4.0-demo",
+        "model_version": "0.5.1-demo",
         "notice": "This normalized index is a GeoSafe-FIS model transformation, not an official agency numerical rating."
       },
       "source": {},
@@ -365,7 +365,7 @@ The response is the saved assessment snapshot with links:
   ],
   "result": {
     "status": "incomplete",
-    "model_version": "0.4.0-demo",
+    "model_version": "0.5.1-demo",
     "normalized_inputs": {},
     "memberships": {},
     "evaluated_rules": [],
@@ -388,12 +388,12 @@ The response is the saved assessment snapshot with links:
   "report_preview": {
     "sections": [],
     "format": "PDF",
-    "download_url": "/api/v1/assessments/1/report"
+    "download_url": "/api/v1/assessments/{private_token}/report"
   },
   "links": {
-    "self": "/api/v1/assessments/1",
-    "explanation": "/api/v1/assessments/1/explanation",
-    "report": "/api/v1/assessments/1/report"
+    "self": "/api/v1/assessments/{private_token}",
+    "explanation": "/api/v1/assessments/{private_token}/explanation",
+    "report": "/api/v1/assessments/{private_token}/report"
   }
 }
 ```
@@ -403,7 +403,7 @@ of the configured GeoSafe-FIS model index divided by 100. It is not an
 official source value. `model_transformation` is the authoritative explanation
 of how the raw code entered this model version.
 
-`evaluated_rules` contains all 12 rules, including zero activations. `activated_rules` contains only rules whose weighted `activation` is greater than zero. Each rule exposes `raw_activation`, `weight`, weighted `activation`, conditions and their memberships, consequent, statement, and rationale.
+`evaluated_rules` contains all 27 generated rules, including zero activations. `activated_rules` contains only rules whose weighted `activation` is greater than zero. Each rule exposes `raw_activation`, `weight`, weighted `activation`, conditions and their memberships, consequent, statement, and rationale.
 
 For missing required hazard data:
 
@@ -416,30 +416,19 @@ For missing required hazard data:
 - `missing_inputs` lists the unavailable variables; and
 - no rules appear in `activated_rules`.
 
-### `GET /assessments?limit={n}&offset={n}`
+### `GET /assessments`
 
-Returns unified, non-user-scoped assessment history:
+Returns `404 private_history`. Assessment history is deliberately not exposed as a shared service listing. The browser retains only the unguessable tokens for assessments created on that device.
 
-```json
-{
-  "items": [],
-  "count": 0,
-  "limit": 50,
-  "offset": 0
-}
-```
-
-`count` is the total saved assessment count. `limit` defaults to 50 and must be 1–100; `offset` defaults to 0 and cannot be negative.
-
-### `GET /assessments/{id}`
+### `GET /assessments/{private_token}`
 
 Returns the saved assessment source snapshot plus current convenience links. Later imports or model changes do not recalculate it.
 
-### `GET /assessments/{id}/explanation`
+### `GET /assessments/{private_token}/explanation`
 
-Returns the saved result’s model version, normalized inputs, memberships, all evaluated rules, activated rules, inference metadata, centroid, score, category/status label, missing inputs, message, and validation notes.
+Returns the saved resultÃ¢â‚¬â„¢s model version, normalized inputs, memberships, all evaluated rules, activated rules, inference metadata, centroid, score, category/status label, missing inputs, message, and validation notes.
 
-### `GET /assessments/{id}/report`
+### `GET /assessments/{private_token}/report`
 
 Regenerates an `application/pdf` report from the immutable saved assessment snapshot on each request. It does not redo the spatial lookup or fuzzy assessment. Each generation records the snapshot and SHA-256 digest in `generated_reports`; the response includes `X-Report-SHA256` and a controlled attachment filename.
 
@@ -447,7 +436,7 @@ Regenerates an `application/pdf` report from the immutable saved assessment snap
 
 ### `GET /incidents?limit={n}`
 
-Returns `{"items": [...], "count": n}` for available incident records. The default limit is 200 and accepted values are 1–1000. The current endpoint has no date, hazard, barangay, offset, or bounding-box filters.
+Returns `{"items": [...], "count": n}` for available incident records. The default limit is 200 and accepted values are 1Ã¢â‚¬â€œ1000. The current endpoint has no date, hazard, barangay, offset, or bounding-box filters.
 
 ### `GET /incidents/nearby`
 
@@ -461,7 +450,7 @@ Returns `items` and `count`. Each match adds `match_reason` (`same_barangay`, `c
 
 ### `GET /clup-references?limit={n}`
 
-Returns `items` and `count`. The default limit is 200 and accepted values are 1–1000. There are no other current filters.
+Returns `items` and `count`. The default limit is 200 and accepted values are 1Ã¢â‚¬â€œ1000. There are no other current filters.
 
 ### `GET /clup-references/by-location`
 
@@ -471,7 +460,7 @@ Requires coordinate aliases and optionally accepts `barangay_id`. Each returned 
 
 Returns:
 
-- `model`: the complete public `0.4.0-demo` configuration, version/checksum, normalization contract, input aliases, output-category details, and inference settings;
+- `model`: the complete public `0.5.1-demo` configuration, version/checksum, normalization contract, input aliases, output-category details, and inference settings;
 - `model_checksum`; and
 - `scope`: purpose, numerical hazard inputs, context-only incident/CLUP data, and unified-access statement.
 
@@ -506,7 +495,7 @@ The current standard-library `unittest` suite verifies the core contract:
 4. A missing required hazard returns its specific missing status, an
    incomplete result, null score, and no activated rules; missingness is not
    interpreted as low.
-5. Saved assessment history uses `limit`/`offset` and has no user or role scope.
+5. Saved assessments use unguessable public tokens, and no shared history listing is exposed.
 6. PDF responses are valid, carry a SHA-256 header, and create a
    generated-report record.
 7. Normal server mode rejects repository demonstration hazards; isolated
@@ -516,3 +505,4 @@ The current standard-library `unittest` suite verifies the core contract:
 9. Prohibited identity and administration endpoints are absent.
 
 Static frontend contract tests additionally verify that only approved pages and API groups are referenced. They are not a browser-automation suite; interactive map behavior still requires the manual acceptance checks listed in [acceptance-criteria.md](acceptance-criteria.md).
+

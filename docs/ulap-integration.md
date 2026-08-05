@@ -2,10 +2,11 @@
 
 ## 1. Purpose and scope
 
-GeoSafe-FIS uses a backend-only ArcGIS REST integration to retrieve current
-source metadata, identify Basey/barangay polygons, and obtain available flood
-and liquefaction classifications for a selected point. It preserves official
-source values separately from the fuzzy model.
+GeoSafe-FIS uses a backend-only ArcGIS REST integration as a controlled data
+synchronization and diagnostic source. Normal map and assessment requests use
+validated local snapshots, so an upstream outage cannot interrupt an already
+provisioned deployment. Official source values remain separate from the fuzzy
+model transformation.
 
 The integration does not add accounts, roles, staff dashboards, source-approval
 screens, browser upload/publication, or a fuzzy-model editor. Source
@@ -31,6 +32,7 @@ it as unavailable and blocks a complete three-hazard score.
 | `geosafe/ulap/models.py` | Strict Pydantic v2 response/status contracts |
 | `geosafe/ulap/errors.py` | Structured sanitized failures and secret redaction |
 | `scripts/verify_ulap_services.py` | Deliberate live service/layer metadata smoke check |
+| `scripts/sync_ulap_snapshot.py` | Deliberate Basey download, validation, and atomic activation into SQLite |
 | `.env.example` | Non-secret deployment settings |
 
 The ArcGIS client uses the Python standard-library HTTP stack. Pydantic v2
@@ -38,7 +40,10 @@ validates integration contracts. PyProj and Shapely are optional GIS
 dependencies for data-import/audit work, not required for ordinary EPSG:4326
 point queries.
 
-## 3. Request path
+## 3. Request paths
+
+The following legacy path applies only when
+`GEOSAFE_RUNTIME_DATA_MODE=live` is explicitly selected:
 
 ```text
 browser
@@ -52,10 +57,28 @@ browser
   ← display source, status, quality, transformation, and incomplete/score state
 ```
 
+Even in live mode, the browser never calls ULAP directly and never receives an
+ArcGIS token. Backend routing provides schema validation, retry/cache behavior,
+attribution, error normalization, and request throttling.
+
+### Snapshot request path
+
+```text
+operator synchronization
+  -> allowlisted GeoRisk HTTPS service
+  -> schema / geometry / exact-code validation
+  -> strict atomic import into SQLite
+
+browser assessment
+  -> local Basey containment and point-in-polygon lookup
+  -> fuzzy completeness gate and calculation
+  -> source, snapshot, quality, transformation, and result display
+```
+
 The browser never calls ULAP directly and never receives an ArcGIS token.
-Backend routing is required for consistent schema validation, retry/cache
-behavior, attribution, error normalization, CORS independence, and request
-throttling.
+Snapshot mode also prevents assessment API calls from contacting ULAP through
+the backend. Explicit `/api/v1/ulap/*` maintenance endpoints remain live
+diagnostics and are not part of the assessment path.
 
 ## 4. Runtime configuration
 
@@ -72,7 +95,13 @@ ULAP_QUERY_CACHE_SECONDS=3600
 ULAP_LIVE_VALIDATION=true
 ULAP_ALLOW_STALE_CACHE=false
 ULAP_SERVICES_CONFIG=config/ulap-services.generated.json
+GEOSAFE_RUNTIME_DATA_MODE=snapshot
 ```
+
+`snapshot` is the normal mode. `live` retains direct-query behavior for
+diagnostics and compatibility testing, but should not be used when offline
+continuity is required. Snapshot mode never silently falls through to live:
+an absent local hazard remains missing and produces an incomplete assessment.
 
 Only the two GeoRisk hosts are allowed. Base URL overrides still undergo
 scheme, hostname, credential, port, and fragment validation. The token is

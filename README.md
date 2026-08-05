@@ -1,30 +1,32 @@
 # GeoSafe-FIS
 
 GeoSafe-FIS is a focused Web-GIS decision-support prototype for Basey, Samar.
-Its backend identifies a selected location and barangay through verified PSA
-GeoRisk/ULAP services, retrieves available MGB flood and PHIVOLCS
-liquefaction evidence, explains source and model transformations, and
-generates a PDF assessment report.
+Its backend identifies a selected location and barangay from validated local
+snapshots, retrieves locally stored MGB/PHIVOLCS hazard evidence, explains
+source and model transformations, and generates a PDF assessment report.
+GeoRisk/ULAP is used by a separate operator-run synchronization command, not
+by ordinary assessment requests.
 
-The application has one unified interface. It intentionally contains no user
+The application has a public information site and a unified assessment map. It intentionally contains no user
 accounts, roles, permissions, staff dashboards, administrative portal,
 approval workflow, browser upload manager, or model editor.
 
 ## Prototype status
 
-The repository has no operational synthetic-data seed. Runtime boundary and
-hazard evidence comes from the configured live ArcGIS services. Sanitized
-responses and synthetic geometry exist only as isolated automated-test
-fixtures and are rejected by normal server mode.
+The repository has no operational synthetic-data seed. Normal server mode is
+`snapshot`: runtime boundary and hazard evidence comes from validated records
+in `data/geosafe.db`. Sanitized responses and synthetic geometry exist only as
+isolated automated-test fixtures and are rejected by normal server mode.
 
-Live service/layer metadata for flood, liquefaction, municipal boundary, and
-barangay boundary was independently reached on 2026-07-23. No verified
-ground-shaking endpoint is configured, so a normal live three-hazard
-assessment is explicitly `incomplete` with a null score. Historical incidents
-and adopted CLUP references are also not configured until authorized data is
-imported.
+Live service/layer metadata for flood, liquefaction, ground shaking, municipal
+boundary, and barangay boundary was independently checked in 2026. The runtime
+database contains Basey-local hazard snapshots: MGB flood polygons, PHIVOLCS
+liquefaction polygons, and a limited-quality ground-shaking grid derived from
+four official 2014 Region VIII deterministic-scenario maps. Historical
+incidents and adopted CLUP references remain unavailable until authorized
+local records are imported.
 
-Fuzzy model `0.4.0-demo`, including its source-code transformations, is not
+Fuzzy model `0.5.2-demo`, including its source-code transformations, is not
 domain validated.
 
 ## Run locally
@@ -36,14 +38,36 @@ python -m pip install -e .
 python -m geosafe.server
 ```
 
-Open <http://127.0.0.1:8000>. The browser loads Leaflet and OpenStreetMap tiles
-from their public CDNs. If those external resources are unavailable,
+Open <http://127.0.0.1:8000>. The browser loads Leaflet, OpenStreetMap street
+tiles, and optional Esri World Imagery/World Topographic basemaps from their
+public services with visible attribution. Basemaps are visual context only and
+do not supply hazard classifications. If those external resources are unavailable,
 coordinate-based assessment remains available and the interface displays a
-map availability notice.
+map availability notice. Hazard overlays remain independent of the selected
+basemap and are rendered from activated local snapshot features.
 
-The server initializes the approved schema, loads the versioned fuzzy and ULAP
-registries, and retrieves live data through its backend. Configure
-`ULAP_LIVE_VALIDATION=true` to validate service metadata during startup.
+Before the first snapshot-mode run, deliberately synchronize each currently
+supported source:
+
+```powershell
+python scripts/sync_ulap_snapshot.py `
+  --target municipal_boundary `
+  --target barangay_boundary `
+  --target flood `
+  --target liquefaction `
+  --target ground_shaking
+```
+
+The command validates the complete response before atomically replacing the
+matching local snapshot. A failed synchronization preserves the previous
+working data. When an ArcGIS layer rejects its advertised `Query` operation,
+the synchronizer can use the same official MapServer's `identify` operation.
+Ground shaking is synchronized from a fixed allowlist of official PHIVOLCS
+Region VIII scenario KMZs and is labelled limited-quality derived data.
+
+The server initializes the approved schema and loads the versioned fuzzy and
+ULAP registries. Configure `ULAP_LIVE_VALIDATION=true` only when deliberate
+startup metadata validation is wanted.
 
 ## Test
 
@@ -58,9 +82,8 @@ python scripts/verify_ulap_services.py `
   --boundary-file "C:\path\to\basey-barangay-boundary-final.json"
 ```
 
-The smoke check currently exits `2` because required ground shaking has no
-verified endpoint; inspect its per-service results for the independently
-successful sources. Network integration tests are opt-in:
+The metadata smoke check verifies source schemas; Basey coverage and snapshot
+quality are reported separately. Network integration tests are opt-in:
 
 ```powershell
 $env:LIVE_ULAP_TESTS = "true"
@@ -118,7 +141,10 @@ classification; the software cannot independently authenticate its issuer.
 | `GEOSAFE_MODEL_PATH` | `config/fuzzy_model.json` | Versioned fuzzy model |
 | `GEOSAFE_SCHEMA_PATH` | `db/schema.sql` | Approved database schema |
 | `GEOSAFE_WEB_ROOT` | `web` | Unified static interface |
+| `GEOSAFE_RUNTIME_DATA_MODE` | `snapshot` | `snapshot` for network-independent assessments; `live` only for diagnostics/legacy operation |
 | `GEOSAFE_LOG_LEVEL` | `INFO` | Lightweight technical logging |
+| `GEOSAFE_API_REQUESTS_PER_MINUTE` | `240` | Per-client general API request limit |
+| `GEOSAFE_ASSESSMENTS_PER_MINUTE` | `12` | Per-client assessment creation limit |
 | `ULAP_HAZARDS_BASE_URL` | GeoRisk hazards REST root | Allowlisted hazard service base |
 | `ULAP_NGA_BASE_URL` | GeoRisk NGA REST root | Allowlisted boundary service base |
 | `ULAP_TOKEN` | empty | Optional server-only ArcGIS token |
@@ -132,6 +158,10 @@ classification; the software cannot independently authenticate its issuer.
 Authentication is not implemented in this prototype. If deployment later
 requires basic perimeter protection, that should be a separately approved
 single shared application password—not accounts, roles, or permissions.
+
+Assessment history is device-local: saved records are addressed by unguessable
+tokens retained in browser storage, and the API does not expose a shared
+assessment listing.
 
 ## Documentation
 
@@ -151,7 +181,7 @@ single shared application password—not accounts, roles, or permissions.
 
 ## Disclaimer
 
-This output is a preliminary decision-support screening result based on the
-availability and classifications of the cited source datasets. It is not an
-official hazard certification, zoning approval, building-safety rating,
-structural assessment, engineering recommendation, or disaster forecast.
+This report is a preliminary multi-hazard screening output based on selected
+available data. It does not certify that a location is safe or unsafe and does
+not replace official hazard, planning, engineering, geological, geotechnical,
+or regulatory assessment.
