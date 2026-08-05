@@ -1744,6 +1744,77 @@ details.panel[open] > summary::after {
   color: #765a38;
 }
 
+/* ─── Result Tabs ─────────────────────────────────────── */
+.result-location-bar {
+  padding: .55rem 0 .75rem;
+}
+
+.result-tabs {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.result-tab-nav {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  padding: 4px;
+  background: var(--surface-soft, #f0f4f3);
+  border-radius: var(--radius-sm, 6px);
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.result-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .3em;
+  padding: .45rem .3rem;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-sm, 6px) - 2px);
+  font-size: .7rem;
+  font-weight: 600;
+  color: #5a7069;
+  cursor: pointer;
+  transition: background .15s, color .15s, box-shadow .15s;
+  white-space: nowrap;
+  letter-spacing: .01em;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.result-tab:hover {
+  background: rgba(255,255,255,.7);
+  color: var(--teal, #0d7a6d);
+}
+
+.result-tab.active {
+  background: #fff;
+  color: var(--teal, #0d7a6d);
+  box-shadow: 0 1px 4px rgba(0,0,0,.12);
+  font-weight: 700;
+}
+
+.result-tab-panels {
+  flex: 1;
+  min-height: 0;
+}
+
+.result-tab-panel {
+  padding: .25rem 0 0;
+  animation: tab-fade-in .18s ease;
+}
+
+@keyframes tab-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Result Sections ─────────────────────────────────── */
 .result-section {
   padding: .85rem 0;
   border-bottom: 1px solid var(--line);

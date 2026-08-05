@@ -2661,34 +2661,62 @@
           ? `Unavailable: ${escapeHtml(missing.join(", "))}.`
           : "The assessment service marked this result incomplete."} Missing data is not low vulnerability.</p></div>
       </div>` : ""}
-      <section class="result-section">
-        <h3>Selected location</h3>
+      <section class="result-section result-location-bar">
         <div class="location-result-grid">
           <div class="result-fact"><span>Barangay</span><strong>${escapeHtml(facts.barangay)}</strong></div>
           <div class="result-fact"><span>Coordinates</span><strong>${escapeHtml(formatCoordinate(facts.latitude))}, ${escapeHtml(formatCoordinate(facts.longitude))}</strong></div>
         </div>
       </section>
-      ${buildHazards(hazards)}
-      ${buildMemberships(hazards)}
-      ${buildRules(rules)}
-      ${buildContext(incidents, clup)}
-      <section class="result-section">
-        <h3>Data-quality &amp; availability notices</h3>
-        ${notices.length
-          ? `<ul class="notice-list">${notices.map((notice) => `<li>${escapeHtml(notice)}</li>`).join("")}</ul>`
-          : `<p class="muted">No quality notices were returned. Consult each source record before interpreting the result.</p>`}
-      </section>
-      <section class="result-section">
-        <h3>Planning-oriented recommendations</h3>
-        ${recommendations.length
-          ? `<ul class="recommendation-list">${recommendations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
-          : `<p class="muted">No location-specific recommendation was returned. Verify the evidence with qualified municipal and technical professionals.</p>`}
-      </section>
-      ${buildSources(sources)}
-      <section class="result-section">
-        <h3>Disclaimer</h3>
-        <div class="inline-disclaimer">${escapeHtml(facts.disclaimer)}</div>
-      </section>`;
+
+      <div class="result-tabs" id="result-tabs">
+        <nav class="result-tab-nav" role="tablist" aria-label="Assessment sections">
+          <button class="result-tab active" role="tab" aria-selected="true"  aria-controls="rtab-hazards"  id="rtab-btn-hazards">🌊 Hazards</button>
+          <button class="result-tab"        role="tab" aria-selected="false" aria-controls="rtab-model"    id="rtab-btn-model">⚙ Model</button>
+          <button class="result-tab"        role="tab" aria-selected="false" aria-controls="rtab-context"  id="rtab-btn-context">📋 CDRA/CLUP</button>
+          <button class="result-tab"        role="tab" aria-selected="false" aria-controls="rtab-details"  id="rtab-btn-details">📁 Details</button>
+        </nav>
+
+        <div class="result-tab-panels">
+
+          <!-- TAB 1: HAZARDS -->
+          <div class="result-tab-panel active" id="rtab-hazards" role="tabpanel" aria-labelledby="rtab-btn-hazards">
+            ${buildHazards(hazards)}
+          </div>
+
+          <!-- TAB 2: MODEL -->
+          <div class="result-tab-panel" id="rtab-model" role="tabpanel" aria-labelledby="rtab-btn-model" hidden>
+            ${buildMemberships(hazards)}
+            ${buildRules(rules)}
+          </div>
+
+          <!-- TAB 3: CDRA / CLUP CONTEXT -->
+          <div class="result-tab-panel" id="rtab-context" role="tabpanel" aria-labelledby="rtab-btn-context" hidden>
+            ${buildContext(incidents, clup)}
+          </div>
+
+          <!-- TAB 4: DETAILS (Sources, Notices, Recs, Disclaimer) -->
+          <div class="result-tab-panel" id="rtab-details" role="tabpanel" aria-labelledby="rtab-btn-details" hidden>
+            <section class="result-section">
+              <h3>Data-quality &amp; availability notices</h3>
+              ${notices.length
+                ? `<ul class="notice-list">${notices.map((notice) => `<li>${escapeHtml(notice)}</li>`).join("")}</ul>`
+                : `<p class="muted">No quality notices were returned. Consult each source record before interpreting the result.</p>`}
+            </section>
+            <section class="result-section">
+              <h3>Planning-oriented recommendations</h3>
+              ${recommendations.length
+                ? `<ul class="recommendation-list">${recommendations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+                : `<p class="muted">No location-specific recommendation was returned. Verify the evidence with qualified municipal and technical professionals.</p>`}
+            </section>
+            ${buildSources(sources)}
+            <section class="result-section">
+              <h3>Disclaimer</h3>
+              <div class="inline-disclaimer">${escapeHtml(facts.disclaimer)}</div>
+            </section>
+          </div>
+
+        </div>
+      </div>`;
   }
 
   function renderAssessment(assessment) {
@@ -2705,6 +2733,26 @@
     saveRecent(assessment);
     renderHistory();
     document.getElementById("results-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+    // Wire tab switching (script tags don't execute when injected via innerHTML)
+    wireResultTabs();
+  }
+
+  function wireResultTabs() {
+    var container = document.getElementById("result-tabs");
+    if (!container) return;
+    var tabs = container.querySelectorAll(".result-tab");
+    var panels = container.querySelectorAll(".result-tab-panel");
+    tabs.forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        var targetId = this.getAttribute("aria-controls");
+        tabs.forEach(function (t) { t.classList.remove("active"); t.setAttribute("aria-selected", "false"); });
+        panels.forEach(function (p) { p.classList.remove("active"); p.hidden = true; });
+        this.classList.add("active");
+        this.setAttribute("aria-selected", "true");
+        var panel = document.getElementById(targetId);
+        if (panel) { panel.classList.add("active"); panel.hidden = false; }
+      });
+    });
   }
 
   async function runAssessment() {
