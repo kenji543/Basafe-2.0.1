@@ -10,9 +10,6 @@ venv/
 *.egg-info/
 
 # Generated runtime state and import diagnostics
-data/*.db
-data/*.db-*
-data/*.sqlite*
 data/backups/
 *.import-errors.jsonl
 *.log
