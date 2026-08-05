@@ -541,7 +541,13 @@ class UlapIntegration:
         )
         warnings = list(result.warnings)
         normalized_value: float | None = None
-        if result.status == Status.AVAILABLE:
+        if result.status == Status.NO_INTERSECTION:
+            status = Status.AVAILABLE.value
+            normalized_value = 0.0
+            mapping = {"official_label": "None"}
+            result.official_label = "None (Outside Hazard Zone)"
+            
+        if status == Status.AVAILABLE.value and normalized_value is None:
             if not isinstance(mapping, dict):
                 status = Status.CHANGED_SCHEMA.value
                 warnings.append(

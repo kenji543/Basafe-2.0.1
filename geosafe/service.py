@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import re
+import urllib.error
+import urllib.parse
+import urllib.request
 from collections.abc import Mapping
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
+
+_log = logging.getLogger(__name__)
 
 from .fuzzy import FuzzyModel
 from .geometry import (
@@ -89,6 +96,123 @@ class GeoSafeService:
     def uses_live_runtime_data(self) -> bool:
         """Whether ordinary map and assessment requests may query ULAP."""
         return self.runtime_data_mode == "live" and self.ulap is not None
+
+    # ------------------------------------------------------------------
+    # Live GeoRisk fallback (snapshot mode only)
+    # Used when the local snapshot has no polygon covering the point.
+    # The map layer continues to use the live ULAP server; only the
+    # hazard score falls back here.
+    # ------------------------------------------------------------------
+
+    _LIVE_LAYER_URLS: dict[str, str] = {
+        "flood": (
+            "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services"
+            "/MGBPublic/Flood/MapServer/0"
+        ),
+        "liquefaction": (
+            "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services"
+            "/PHIVOLCSPublic/Liquefaction/MapServer/0"
+        ),
+        "ground_shaking": (
+            "https://gisweb.phivolcs.dost.gov.ph/arcgis/rest/services"
+            "/PHIVOLCSPublic/GroundShaking/MapServer/0"
+        ),
+    }
+    _LIVE_CLASS_FIELDS: dict[str, str] = {
+        "flood": "fscode",
+        "liquefaction": "lccode",
+        "ground_shaking": "peiscode",
+    }
+    _LIVE_AGENCIES: dict[str, str] = {
+        "flood": "Mines and Geosciences Bureau (live fallback)",
+        "liquefaction": "PHIVOLCS (live fallback)",
+        "ground_shaking": "PHIVOLCS (live fallback)",
+    }
+
+    def _live_hazard_fallback(
+        self,
+        hazard_type: str,
+        latitude: float,
+        longitude: float,
+    ) -> dict[str, Any] | None:
+        """
+        Query the public GeoRisk ArcGIS REST layer for a single point.
+        Returns a hazard dict compatible with _hazard_at_location output,
+        or None when the live API is unreachable or returns no feature.
+        """
+        layer_url = self._LIVE_LAYER_URLS.get(hazard_type)
+        field = self._LIVE_CLASS_FIELDS.get(hazard_type)
+        if not layer_url or not field:
+            return None
+
+        # Build ArcGIS point-query request (public, no token needed)
+        params = urllib.parse.urlencode({
+            "geometry": f"{longitude},{latitude}",
+            "geometryType": "esriGeometryPoint",
+            "spatialRel": "esriSpatialRelIntersects",
+            "outFields": field,
+            "returnGeometry": "false",
+            "f": "json",
+        })
+        url = f"{layer_url}/query?{params}"
+        try:
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "GeoSafe-FIS/0.5-snapshot-fallback"}
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                data = json.loads(resp.read())
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            _log.warning("Live hazard fallback failed for %s: %s", hazard_type, exc)
+            return None
+
+        features = data.get("features") or []
+        if not features:
+            # Live API also has no polygon here — genuinely outside hazard zone
+            return {
+                "status": "available",
+                "availability_status": "available",
+                "classification": "None (Outside Hazard Zone)",
+                "official_label": "None",
+                "raw_code": "00",
+                "normalized_value": 0.0,
+                "normalized_fraction": 0.0,
+                "source_tag": "live_fallback_no_polygon",
+                "agency": self._LIVE_AGENCIES.get(hazard_type, "GeoRisk ULAP"),
+            }
+
+        attrs = features[0].get("attributes") or {}
+        raw = attrs.get(field)
+        raw_code = str(int(raw)).zfill(2) if raw is not None else None
+
+        # Map through the fuzzy model's classification_mappings
+        input_cfg = self.model.inputs.get(hazard_type, {})
+        mappings: dict[str, Any] = (
+            (input_cfg.get("normalization") or {}).get("classification_mappings") or {}
+        )
+        mapping = mappings.get(str(raw_code)) if raw_code else None
+
+        if not isinstance(mapping, dict):
+            _log.warning(
+                "Live fallback for %s returned unknown code %r",
+                hazard_type, raw_code,
+            )
+            return None  # Unknown code — don't guess
+
+        official_label = mapping.get("official_label", raw_code)
+        normalized_value = float(mapping["normalized_value"])
+        normalized_fraction = normalized_value / 100.0
+
+        return {
+            "status": "available",
+            "availability_status": "available",
+            "classification": official_label,
+            "official_label": official_label,
+            "raw_code": raw_code,
+            "normalized_value": normalized_value,
+            "normalized_fraction": normalized_fraction,
+            "source_tag": "live_fallback",
+            "agency": self._LIVE_AGENCIES.get(hazard_type, "GeoRisk ULAP"),
+        }
 
     def _prefer_official(
         self, records: list[dict[str, Any]]
@@ -667,12 +791,91 @@ class GeoSafeService:
                 "source classification or measurement was normalized."
             ),
         }
-        if feature is None or feature["normalized_fraction"] is None:
-            reason = (
-                "No feature in the selected dataset covers this point."
-                if feature is None
-                else "The covering feature has no normalized hazard value."
+        if feature is None:
+            # --- Hybrid fallback: try live GeoRisk API before giving up ---
+            live = self._live_hazard_fallback(hazard_type, latitude, longitude)
+            if live is not None:
+                source_tag = live.pop("source_tag", "live_fallback")
+                fallback_agency = live.pop("agency", dataset.get("source_name") or "GeoRisk ULAP")
+                no_local_warning = (
+                    "Local snapshot has no polygon at this point. "
+                    "Score retrieved from live GeoRisk ArcGIS service."
+                    if source_tag == "live_fallback"
+                    else (
+                        "No hazard polygon covers this point in local OR live data. "
+                        "Assigned lowest susceptibility (0). "
+                        "This does not confirm safety — verify against official maps."
+                    )
+                )
+                quality_parts.append(no_local_warning)
+                return (
+                    {
+                        "hazard_type": hazard_type,
+                        "hazard": hazard_type,
+                        "name": dataset["name"],
+                        "status": live["status"],
+                        "availability_status": live["availability_status"],
+                        "classification": live["classification"],
+                        "official_label": live["official_label"],
+                        "raw_code": live["raw_code"],
+                        "normalized_value": live["normalized_value"],
+                        "normalized_fraction": live["normalized_fraction"],
+                        "source": {
+                            **source,
+                            "source_name": fallback_agency,
+                            "data_status": "live_fallback",
+                        },
+                        "normalization": normalization,
+                        "source_name": fallback_agency,
+                        "source_date": dataset["source_date"],
+                        "quality_status": "live_fallback",
+                        "is_official": True,
+                        "is_demo": False,
+                        "data_status": "live_fallback",
+                        "source_url": self._LIVE_LAYER_URLS.get(hazard_type, source_url),
+                        "retrieved_at": retrieved_at,
+                        "spatial_reference": 4326,
+                        "warnings": [no_local_warning],
+                        "quality_notice": "; ".join(quality_parts) or None,
+                    },
+                    notices,
+                )
+            # Live fallback also failed — return sentinel 0
+            quality_parts.append(
+                "Local snapshot and live GeoRisk API both returned no polygon. "
+                "Assigned lowest susceptibility (0) — verify against official maps."
             )
+            return (
+                {
+                    "hazard_type": hazard_type,
+                    "hazard": hazard_type,
+                    "name": dataset["name"],
+                    "status": "available",
+                    "availability_status": "available",
+                    "classification": "None (Outside Hazard Zone)",
+                    "official_label": "None",
+                    "raw_code": "00",
+                    "normalized_value": 0.0,
+                    "normalized_fraction": 0.0,
+                    "source": source,
+                    "normalization": normalization,
+                    "source_name": dataset["source_name"],
+                    "source_date": dataset["source_date"],
+                    "quality_status": dataset["quality_status"],
+                    "is_official": dataset["is_official"],
+                    "is_demo": dataset["is_demo"],
+                    "data_status": dataset["data_status"],
+                    "source_url": source_url,
+                    "retrieved_at": retrieved_at,
+                    "spatial_reference": 4326,
+                    "warnings": [quality_parts[-1]],
+                    "quality_notice": "; ".join(quality_parts) or None,
+                },
+                notices,
+            )
+            
+        if feature["normalized_fraction"] is None:
+            reason = "The covering feature has no normalized hazard value."
             quality_parts.append(
                 f"{reason} Missing information is not low vulnerability."
             )
@@ -681,18 +884,11 @@ class GeoSafeService:
                     "hazard_type": hazard_type,
                     "hazard": hazard_type,
                     "name": dataset["name"],
-                    "status": "no_intersection" if feature is None else "missing_value",
+                    "status": "missing_value",
                     "availability_status": "missing",
-                    "classification": (
-                        feature["classification"] if feature else None
-                    ),
-                    "official_label": (
-                        feature["classification"] if feature else None
-                    ),
-                    "raw_code": (
-                        feature["properties"].get("source_code")
-                        if feature else None
-                    ),
+                    "classification": feature["classification"],
+                    "official_label": feature["classification"],
+                    "raw_code": feature["properties"].get("source_code"),
                     "normalized_value": None,
                     "normalized_fraction": None,
                     "source": source,

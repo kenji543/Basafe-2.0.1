@@ -1,5 +1,5 @@
 {
-  "model_version": "0.5.2-demo",
+  "model_version": "0.5.3-demo",
   "model_name": "GeoSafe-FIS multi-hazard vulnerability screening model",
   "status": "DEMONSTRATION MODEL â€” NOT YET VALIDATED FOR OFFICIAL PLANNING USE",
   "effective_date": "2026-07-23",
@@ -32,6 +32,11 @@
         ],
         "method": "Exact code lookup from the verified live domain; the official label is preserved separately.",
         "classification_mappings": {
+          "00": {
+            "official_label": "None",
+            "normalized_value": 0,
+            "note": "Sentinel: point lies outside any mapped flood hazard polygon. Treated as lowest susceptibility for screening purposes only."
+          },
           "01": {
             "official_label": "Low Susceptibility",
             "normalized_value": 20
@@ -49,7 +54,7 @@
             "normalized_value": 95
           }
         },
-        "missing_value_policy": "An absent feature, missing field, changed schema, or unknown code remains missing and makes the assessment incomplete.",
+        "missing_value_policy": "A point outside all mapped flood polygons is assigned code 00 (normalized_value 0). A missing field or unknown code still blocks the assessment.",
         "validation_requirement": "DEMONSTRATION TRANSFORMATION â€” the four model index values require review and approval by qualified domain experts before official planning use."
       },
       "memberships": [
@@ -104,6 +109,11 @@
         ],
         "method": "Exact code lookup configured independently for every official category; no ordinal sequence is inferred from the code numbers.",
         "classification_mappings": {
+          "00": {
+            "official_label": "None",
+            "normalized_value": 0,
+            "note": "Sentinel: point lies outside any mapped liquefaction hazard polygon. Treated as lowest susceptibility for screening purposes only."
+          },
           "01": {
             "official_label": "Generally Susceptible",
             "normalized_value": 50,
@@ -134,7 +144,7 @@
             "normalized_value": 90
           }
         },
-        "missing_value_policy": "An absent feature, missing field, changed schema, or unknown code remains missing and makes the assessment incomplete.",
+        "missing_value_policy": "A point outside all mapped liquefaction polygons is assigned code 00 (normalized_value 0). A missing field or unknown code still blocks the assessment.",
         "validation_requirement": "DEMONSTRATION TRANSFORMATION â€” these non-equivalent source categories and all seven model index values require PHIVOLCS/domain-expert validation before official planning use."
       },
       "memberships": [
@@ -189,6 +199,7 @@
         ],
         "method": "Exact PEIS code lookup from the verified PHIVOLCS domain. The ordinal PEIS I-X classes are transparently scaled to 10-100; the official Roman-numeral class remains separate.",
         "classification_mappings": {
+          "00": {"official_label": "None", "normalized_value": 0, "note": "Sentinel: point lies outside any mapped ground-shaking polygon. Treated as lowest intensity for screening purposes only."},
           "01": {"official_label": "I", "normalized_value": 10},
           "02": {"official_label": "II", "normalized_value": 20},
           "03": {"official_label": "III", "normalized_value": 30},
@@ -200,7 +211,7 @@
           "09": {"official_label": "IX", "normalized_value": 90},
           "10": {"official_label": "X", "normalized_value": 100}
         },
-        "missing_value_policy": "A point outside the published ground-shaking polygons remains missing. Do not substitute Active Fault, distance to fault, epicenters, liquefaction, or an invented intensity.",
+        "missing_value_policy": "A point outside all mapped ground-shaking polygons is assigned code 00 (normalized_value 0). A missing field or unknown code still blocks the assessment.",
         "validation_requirement": "DEMONSTRATION TRANSFORMATION — the PEIS-to-index scaling requires PHIVOLCS and domain-expert validation before official planning use."
       },
       "memberships": [
