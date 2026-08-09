@@ -1,4 +1,4 @@
-"""Application services that enforce the approved GeoSafe-FIS workflow."""
+"""Application services that enforce the approved Basafe workflow."""
 
 from __future__ import annotations
 
@@ -157,7 +157,7 @@ class GeoSafeService:
         url = f"{layer_url}/query?{params}"
         try:
             req = urllib.request.Request(
-                url, headers={"User-Agent": "GeoSafe-FIS/0.5-snapshot-fallback"}
+                url, headers={"User-Agent": "Basafe/0.5-snapshot-fallback"}
             )
             with urllib.request.urlopen(req, timeout=12) as resp:
                 data = json.loads(resp.read())
@@ -360,7 +360,7 @@ class GeoSafeService:
                 "required_hazard_types": list(REQUIRED_HAZARDS),
                 "notices": [
                     "Layers are fetched from the configured ULAP services at "
-                    "runtime through the GeoSafe-FIS backend.",
+                    "runtime through the Basafe backend.",
                     "Ground shaking remains unavailable until a genuine, verified "
                     "ground-shaking endpoint is configured.",
                 ],
@@ -1366,7 +1366,7 @@ class GeoSafeService:
                     "disclaimer", self.model.configuration["disclaimer"]
                 ),
             ),
-            title=f"GeoSafe-FIS Assessment {public_token[:12]}",
+            title=f"Basafe Assessment {public_token[:12]}",
             assessment=assessment,
         )
         metadata = self.repository.save_report_record(

@@ -1,6 +1,6 @@
 PRAGMA foreign_keys = ON;
 
--- GeoSafe-FIS keeps only records needed by the Web-GIS assessment workflow.
+-- Basafe keeps only records needed by the Web-GIS assessment workflow.
 -- Geometry is stored as RFC 7946 GeoJSON in EPSG:4326 so this schema works
 -- with SQLite without requiring a spatial extension.
 

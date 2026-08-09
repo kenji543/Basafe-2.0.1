@@ -1,4 +1,4 @@
-"""GeoSafe-FIS focused Web-GIS decision-support prototype."""
+"""Basafe focused Web-GIS decision-support prototype."""
 
 from .fuzzy import FuzzyModel, ModelConfigurationError
 

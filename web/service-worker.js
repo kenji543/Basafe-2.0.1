@@ -1,5 +1,5 @@
-const CACHE_VERSION = "geosafe-shell-v18";
-const INFO_CACHE = "geosafe-info-v18";
+const CACHE_VERSION = "geosafe-shell-v28";
+const INFO_CACHE = "geosafe-info-v28";
 const APP_SHELL = [
   "/",
   "/map",
@@ -9,14 +9,15 @@ const APP_SHELL = [
   "/about",
   "/privacy",
   "/offline",
-  "/site.css?v=0.5.11",
-  "/styles.css?v=0.5.14",
-  "/landing.js?v=0.5.11",
-  "/app.js?v=0.5.13",
-  "/methodology.js?v=0.5.11",
-  "/info.js?v=0.5.11",
-  "/pwa.js?v=0.5.11",
+  "/site.css?v=0.6.4",
+  "/styles.css?v=0.5.20",
+  "/landing.js?v=0.6.1",
+  "/app.js?v=0.5.18",
+  "/methodology.js?v=0.5.13",
+  "/info.js?v=0.5.14",
+  "/pwa.js?v=0.6.1",
   "/manifest.webmanifest",
+  "/icons/basafe-logo-256.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/icons/icon-maskable-512.png"
@@ -52,11 +53,15 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       caches.open(INFO_CACHE).then(async (cache) => {
         const cached = await cache.match(request);
-        const network = fetch(request).then((response) => {
-          if (response.ok) cache.put(request, response.clone());
+        try {
+          const response = await fetch(request);
+          if (response.ok) await cache.put(request, response.clone());
           return response;
-        }).catch(() => cached || caches.match("/offline"));
-        return cached || network;
+        } catch {
+          if (cached) return cached;
+          const shellCache = await caches.open(CACHE_VERSION);
+          return (await shellCache.match(url.pathname)) || (await shellCache.match("/offline"));
+        }
       })
     );
     return;

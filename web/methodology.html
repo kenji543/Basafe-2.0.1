@@ -3,29 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="GeoSafe-FIS fuzzy methodology, data sources, and limitations.">
+  <meta name="description" content="Basafe fuzzy methodology, data sources, and limitations.">
   <meta name="theme-color" content="#073b4c">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/icon-192.png">
-  <title>Methodology &amp; limitations | GeoSafe-FIS</title>
-  <link rel="stylesheet" href="/styles.css?v=0.5.14">
-  <script defer src="/methodology.js?v=0.5.11"></script>
-  <script defer src="/pwa.js?v=0.5.11"></script>
+  <title>Methodology &amp; limitations | Basafe</title>
+  <link rel="stylesheet" href="/styles.css?v=0.5.19">
+  <script defer src="/methodology.js?v=0.5.13"></script>
+  <script defer src="/pwa.js?v=0.6.1"></script>
 </head>
 <body data-api-base="/api/v1" class="methodology-page">
   <a class="skip-link" href="#main-content">Skip to methodology</a>
 
   <header class="app-header">
-    <a class="brand" href="/" aria-label="GeoSafe-FIS public home">
+    <a class="brand" href="/" aria-label="Basafe public home">
       <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 40 40" role="img">
-          <path d="M20 3.5c-7 0-12.7 5.5-12.7 12.4 0 9.2 12.7 20.4 12.7 20.4s12.7-11.2 12.7-20.4C32.7 9 27 3.5 20 3.5Z"/>
-          <path class="brand-wave" d="M11.7 17.3c2.2 0 2.2-1.8 4.4-1.8s2.2 1.8 4.4 1.8 2.2-1.8 4.4-1.8 2.2 1.8 4.4 1.8"/>
-          <circle class="brand-dot" cx="20" cy="11.5" r="2.2"/>
-        </svg>
+        <img src="/icons/basafe-logo-256.png" alt="">
       </span>
       <span>
-        <strong>GeoSafe-FIS</strong>
+        <strong>Basafe</strong>
         <small>Public multi-hazard screening</small>
       </span>
     </a>
@@ -35,6 +31,16 @@
       <a href="/data-sources">Sources</a>
       <a class="active" href="/methodology" aria-current="page">Methodology</a>
     </nav>
+    <details class="compact-nav">
+      <summary>Menu</summary>
+      <nav aria-label="Mobile navigation">
+        <a href="/">Home</a>
+        <a href="/map">Scoring map</a>
+        <a href="/data-sources">Data sources</a>
+        <a class="active" href="/methodology" aria-current="page">Methodology</a>
+        <a href="/limitations">Limitations</a>
+      </nav>
+    </details>
     <div id="method-status" class="system-status is-checking" role="status" aria-live="polite">
       <span class="status-dot" aria-hidden="true"></span>
       <span>Loading model record</span>
@@ -50,14 +56,14 @@
       <a href="#sources">Data sources</a>
       <a href="#quality">Data quality</a>
       <a href="#limitations">Limitations &amp; disclaimer</a>
-      <a class="button primary" href="/map">Open assessment map</a>
+      <a class="button primary" href="/map">Open scoring map</a>
     </aside>
 
     <article class="document-content">
       <header class="document-hero" id="overview">
         <p class="eyebrow">Transparent by design</p>
         <h1>Methodology &amp; limitations</h1>
-        <p class="lede">GeoSafe-FIS retrieves available official hazard classifications through verified GeoRisk Philippines ULAP services, then keeps those source values separate from its explainable model transformations.</p>
+        <p class="lede">Basafe scoring reads available local hazard data derived from verified GeoRisk Philippines sources. Source classifications remain separate from the application’s explainable model transformations, while live synchronization is handled as a maintenance process.</p>
         <div class="model-meta">
           <div><span>Model version</span><strong id="model-version">Not reported</strong></div>
           <div><span>Defuzzification</span><strong id="defuzzification">Not reported</strong></div>
@@ -71,11 +77,11 @@
           <strong>Screening, not a site-specific determination</strong>
           <p>The score supports early planning conversations. It does not replace detailed geotechnical, hydrologic, structural, land-use, or emergency-management studies.</p>
         </div>
-        <h2>How an assessment is produced</h2>
+        <h2>How a score is produced</h2>
         <ol class="process-list">
           <li><span>01</span><div><strong>Select and identify</strong><p>The point is checked against the configured Basey municipal and barangay sources, with provenance preserved.</p></div></li>
-          <li><span>02</span><div><strong>Retrieve live evidence</strong><p>The backend queries verified ULAP services and records the raw code, official label, status, layer, attribution, retrieval time, and cache state.</p></div></li>
-          <li><span>03</span><div><strong>Transform transparently</strong><p>A configured GeoSafe-FIS normalization converts an available official label into a separate internal model value and fuzzy memberships.</p></div></li>
+          <li><span>02</span><div><strong>Read available hazard data</strong><p>The backend reads the available Basey datasets and records the raw code, official label, status, layer, attribution, source date, import time, and availability state.</p></div></li>
+          <li><span>03</span><div><strong>Transform transparently</strong><p>A configured Basafe normalization converts an available official label into a separate internal model value and fuzzy memberships.</p></div></li>
           <li><span>04</span><div><strong>Evaluate rules</strong><p>Configured rules are activated, weighted, aggregated, and preserved with their activation strengths.</p></div></li>
           <li><span>05</span><div><strong>Explain the result</strong><p>A 0–100 score and descriptive category are presented with the evidence, rules, missing-data status, and cautious recommendations.</p></div></li>
         </ol>
@@ -84,10 +90,10 @@
       <section id="model" class="document-section">
         <div class="section-kicker">Model specification</div>
         <h2>Inputs and membership functions</h2>
-        <p>The deployed model configuration is version-controlled. The table is populated from the methodology API so the interface describes the model actually used by the assessment service.</p>
+        <p>The deployed model configuration is version-controlled. The table is populated from the methodology API so the interface describes the model actually used by the scoring service.</p>
         <div class="callout important">
           <strong>Official classification ≠ model value</strong>
-          <p>The MGB or PHIVOLCS source code and label are displayed unchanged. Any 0–100 input value and membership degrees are GeoSafe-FIS transformations, not official agency numerical ratings.</p>
+          <p>The MGB or PHIVOLCS source code and label are displayed unchanged. Any 0–100 input value and membership degrees are Basafe transformations, not official agency numerical ratings.</p>
         </div>
         <div id="variables-content" class="api-document-content">
           <div class="loading-block"><span class="spinner"></span>Loading input variables…</div>
@@ -102,7 +108,7 @@
       <section id="rules" class="document-section">
         <div class="section-kicker">Explainability</div>
         <h2>Documented fuzzy rules</h2>
-        <p>Every assessment preserves the activated statements and their strengths. A rule that does not activate should not be presented as contributing to the score.</p>
+        <p>Every score preserves the activated statements and their strengths. A rule that does not activate should not be presented as contributing to the score.</p>
         <div id="rules-content" class="api-document-content">
           <div class="loading-block"><span class="spinner"></span>Loading rule base…</div>
         </div>
@@ -114,14 +120,14 @@
 
       <section id="sources" class="document-section">
         <div class="section-kicker">Evidence register</div>
-        <h2>Live ULAP services and data sources</h2>
-        <p>Each source record identifies its agency, service and layer, verification status, classification field, URL, attribution, retrieval or data date, and known limitations. A zero-feature response is never treated as low or safe.</p>
+        <h2>Available hazard data and source records</h2>
+        <p>Each record identifies its originating agency, service and layer, verification status, classification field, URL, attribution, source or import date, and known limitations. Live service health is reported separately from the local data used for a score. A zero-feature response is never treated as low or safe.</p>
         <div id="ulap-method-status" class="callout important">
-          <strong>Checking live service health…</strong>
-          <p>GeoSafe-FIS validates configured ArcGIS service and layer metadata through its backend.</p>
+          <strong>Checking hazard data and source status…</strong>
+          <p>Basafe reports activated local datasets separately from configured source-service health.</p>
         </div>
         <div id="sources-content" class="api-document-content">
-          <div class="loading-block"><span class="spinner"></span>Loading verified ULAP source register…</div>
+          <div class="loading-block"><span class="spinner"></span>Loading the verified source register…</div>
         </div>
       </section>
 
@@ -129,7 +135,7 @@
         <div class="section-kicker">Responsible interpretation</div>
         <h2>Data availability and quality</h2>
         <div class="principle-grid">
-          <article><span>01</span><h3>Missing stays missing</h3><p>A required unavailable hazard input makes an assessment incomplete; it is never converted to zero or low vulnerability.</p></article>
+          <article><span>01</span><h3>Missing stays missing</h3><p>A required unavailable hazard input makes a score incomplete; it is never converted to zero or low vulnerability.</p></article>
           <article><span>02</span><h3>Provenance travels with results</h3><p>Provider, date, processing notes, availability, and quality notices remain visible in both the interface and report.</p></article>
           <article><span>03</span><h3>Live or cached is explicit</h3><p>Every hazard value shows its source URL, retrieval time, cache source and expiry. Stale values are labelled and never silently reused.</p></article>
         </div>
@@ -156,8 +162,8 @@
   </main>
 
   <footer class="app-footer document-footer">
-    <p>GeoSafe-FIS · Explainable Web-GIS screening for Basey, Samar</p>
-    <a href="/map">Return to assessment</a>
+    <p>Basafe · Explainable Web-GIS screening for Basey, Samar</p>
+    <a href="/map">Return to scoring</a>
   </footer>
   <div id="offline-banner" class="offline-banner" role="status" hidden>You are offline. Previously viewed methodology may be available, but current source status requires a connection.</div>
 </body>

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Explore selected GeoRiskPH hazard layers and generate an explainable preliminary multi-hazard screening report for locations in Basey, Samar.">
   <meta name="theme-color" content="#073b4c">
-  <meta property="og:title" content="GeoSafe-FIS | Public multi-hazard screening for Basey">
+  <meta property="og:title" content="Basafe | Public multi-hazard screening for Basey">
   <meta property="og:description" content="Understand the documented hazard conditions affecting a location.">
   <meta property="og:image" content="/og.png">
   <meta name="twitter:card" content="summary_large_image">
@@ -14,10 +14,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/site.css?v=0.6.0">
-  <title>GeoSafe-FIS | Public Multi-Hazard Mapping for Basey</title>
-  <script defer src="/landing.js?v=0.6.0"></script>
-  <script defer src="/pwa.js?v=0.6.0"></script>
+  <link rel="stylesheet" href="/site.css?v=0.6.4">
+  <title>Basafe | Public Multi-Hazard Mapping for Basey</title>
+  <script defer src="/landing.js?v=0.6.1"></script>
+  <script defer src="/pwa.js?v=0.6.1"></script>
 </head>
 <body class="landing-page">
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -25,9 +25,9 @@
   <!-- HEADER -->
   <header class="site-header" data-header>
     <div class="site-header-inner">
-      <a class="site-brand" href="/" aria-label="GeoSafe-FIS home">
-        <span class="logo-pin" aria-hidden="true"><i></i></span>
-        <span><strong>GeoSafe-FIS</strong><small>Basey, Samar</small></span>
+      <a class="site-brand" href="/" aria-label="Basafe home">
+        <img class="logo-pin" src="/icons/basafe-logo-256.png" alt="">
+        <span><strong>Basafe</strong><small>Basey, Samar</small></span>
       </a>
       <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-navigation">Menu</button>
       <nav id="site-navigation" class="site-nav" aria-label="Primary navigation">
@@ -39,13 +39,13 @@
       </nav>
       <div class="header-actions">
         <button class="button button-quiet install-button" type="button" data-install hidden>Install App</button>
-        <a class="button button-primary" href="/map" id="header-cta">Assess a Location</a>
+        <a class="button button-primary" href="/map" id="header-cta">Score a Location</a>
       </div>
     </div>
   </header>
 
   <div id="offline-banner" class="offline-banner" role="status" hidden>
-    You are offline. Previously viewed information may be available, but new hazard data and complete assessments may require an internet connection.
+    You are offline. Previously viewed information may be available, but new hazard data and complete scores may require an internet connection.
   </div>
 
   <main id="main-content">
@@ -70,7 +70,7 @@
         <div class="hero-actions">
           <a class="button button-primary button-large" href="/map" id="hero-cta-primary">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            Assess a Location
+            Score a Location
           </a>
           <button class="button button-secondary button-large install-button" type="button" data-install id="hero-cta-install" hidden>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -78,7 +78,7 @@
           </button>
           <a class="button button-ghost button-large" href="#how-it-works" id="hero-cta-learn">How It Works</a>
         </div>
-        <p class="micro-disclaimer">GeoSafe-FIS provides preliminary screening information and does not declare a location safe or unsafe.</p>
+        <p class="micro-disclaimer">Basafe provides preliminary screening information and does not declare a location safe or unsafe.</p>
       </div>
 
       <!-- ISOMETRIC VISUALIZATION CARD -->
@@ -207,7 +207,7 @@
         <div class="iso-info-card">
           <div class="iso-info-left">
             <span class="iso-info-label">ILLUSTRATIVE PREVIEW</span>
-            <strong class="iso-info-title">Explainable assessment</strong>
+            <strong class="iso-info-title">Explainable scoring</strong>
             <span class="iso-info-sub">Source values · memberships · rules</span>
           </div>
           <div class="iso-info-right">
@@ -221,7 +221,7 @@
     </section><!-- /hero -->
 
     <!-- TRUST STRIP -->
-    <section class="trust-strip" aria-label="GeoSafe-FIS capabilities">
+    <section class="trust-strip" aria-label="Basafe capabilities">
       <div>
         <span class="trust-num">01</span>
         <div class="trust-text">
@@ -232,7 +232,7 @@
       <div>
         <span class="trust-num">02</span>
         <div class="trust-text">
-          <strong>Explainable fuzzy assessment</strong>
+          <strong>Explainable fuzzy scoring</strong>
           <small>All rules and memberships exposed</small>
         </div>
       </div>
@@ -247,7 +247,7 @@
         <span class="trust-num">04</span>
         <div class="trust-text">
           <strong>Downloadable PDF reports</strong>
-          <small>Shareable preliminary assessment</small>
+          <small>Shareable preliminary score</small>
         </div>
       </div>
     </section>
@@ -261,21 +261,52 @@
       </div>
       <ol class="step-grid">
         <li>
+          <svg class="step-visual" viewBox="0 0 160 92" aria-hidden="true">
+            <path class="vector-grid" d="M12 18h136M12 46h136M12 74h136M38 8v76M80 8v76M122 8v76"/>
+            <path class="vector-route" d="M18 70c20-18 32-9 48-25s29-18 47-7 24-4 32-17"/>
+            <g class="step-pin">
+              <path class="vector-primary" d="M80 19c-11 0-20 8.4-20 18.8 0 14.1 20 31.2 20 31.2s20-17.1 20-31.2C100 27.4 91 19 80 19Z"/>
+              <circle class="vector-surface" cx="80" cy="38" r="7"/>
+            </g>
+          </svg>
           <span class="step-num">1</span>
           <h3>Select a Location</h3>
           <p>Search for a place, enter coordinates, use your current location, or click the map.</p>
         </li>
         <li>
+          <svg class="step-visual" viewBox="0 0 160 92" aria-hidden="true">
+            <path class="vector-layer vector-flood" d="m22 62 58-23 58 23-58 23-58-23Z"/>
+            <path class="vector-layer vector-liquefaction" d="m22 46 58-23 58 23-58 23-58-23Z"/>
+            <path class="vector-layer vector-shaking" d="m22 30 58-23 58 23-58 23-58-23Z"/>
+            <path class="vector-contour" d="M51 31c13-10 22 8 34-1s18-3 25 4M49 48c17-11 26 9 40 0s22-2 28 3M50 65c14-10 24 7 38 0s22-3 28 2"/>
+          </svg>
           <span class="step-num">2</span>
           <h3>View Hazard Layers</h3>
           <p>Examine available flood, liquefaction, and ground-shaking layers with legends and sources.</p>
         </li>
         <li>
+          <svg class="step-visual" viewBox="0 0 160 92" aria-hidden="true">
+            <path class="vector-connector" d="M31 24 76 46 31 70M76 46l50-23M76 46l50 24"/>
+            <circle class="vector-node vector-node-a" cx="31" cy="24" r="12"/>
+            <circle class="vector-node vector-node-b" cx="31" cy="70" r="12"/>
+            <circle class="vector-node vector-node-c" cx="76" cy="46" r="16"/>
+            <circle class="vector-node vector-node-d" cx="126" cy="23" r="12"/>
+            <circle class="vector-node vector-node-e" cx="126" cy="70" r="12"/>
+            <path class="vector-spark" d="m71 47 4-8 4 8 8 4-8 4-4 8-4-8-8-4 8-4Z"/>
+          </svg>
           <span class="step-num">3</span>
-          <h3>Generate an Assessment</h3>
+          <h3>Generate a Score</h3>
           <p>Process valid source classifications through the documented fuzzy model.</p>
         </li>
         <li>
+          <svg class="step-visual" viewBox="0 0 160 92" aria-hidden="true">
+            <path class="vector-document" d="M43 8h58l18 18v58H43V8Z"/>
+            <path class="vector-fold" d="M101 8v19h18"/>
+            <path class="vector-report-line" d="M58 65h46M58 74h33"/>
+            <path class="vector-chart" d="M59 52V40m14 12V29m14 23V35m14 17V22"/>
+            <circle class="vector-badge" cx="119" cy="69" r="17"/>
+            <path class="vector-check" d="m111 69 5 5 11-12"/>
+          </svg>
           <span class="step-num">4</span>
           <h3>Understand the Result</h3>
           <p>Review inputs, rules, warnings, recommendations, and the downloadable report.</p>
@@ -289,7 +320,7 @@
         <div class="section-heading">
           <p class="eyebrow">Hazards included</p>
           <h2>Three evidence layers, kept distinct</h2>
-          <p>Each hazard is assessed independently. Classifications come from configured source metadata — GeoSafe-FIS never invents unavailable values.</p>
+          <p>Each hazard is assessed independently. Classifications come from configured source metadata — Basafe never invents unavailable values.</p>
         </div>
         <div class="data-layer-cards">
 
@@ -321,7 +352,7 @@
             </div>
             <div class="dlc-body">
               <h3>Ground Shaking</h3>
-              <p>Derived from official PHIVOLCS Region VIII scenario maps. An unavailable layer blocks a complete score to prevent incomplete assessments.</p>
+              <p>Derived from official PHIVOLCS Region VIII scenario maps. An unavailable layer blocks a complete score to prevent incomplete scoring.</p>
             </div>
             <a class="button button-view-data" href="/data-sources#ground-shaking" id="view-shake-data">View Data</a>
           </article>
@@ -355,9 +386,9 @@
       <div class="section-heading">
         <p class="eyebrow">Why the result is explainable</p>
         <h2>See how the result was produced</h2>
-        <p>The assessment does not hide the evidence behind a single number.</p>
+        <p>The score does not hide the evidence behind a single number.</p>
       </div>
-      <div class="explain-flow" aria-label="Assessment explanation flow">
+      <div class="explain-flow" aria-label="Score explanation flow">
         <span>Source classifications</span><i aria-hidden="true">→</i>
         <span>Normalized inputs</span><i aria-hidden="true">→</i>
         <span>Objective weights</span><i aria-hidden="true">→</i>
@@ -366,7 +397,7 @@
         <span>Screening result</span>
       </div>
       <div class="explain-list">
-        <p>Each assessment exposes source hazard values, normalized inputs, applied weights, membership categories, principal rules, missing-data conditions, the final category, and a plain-language explanation.</p>
+        <p>Each score exposes source hazard values, normalized inputs, applied weights, membership categories, principal rules, missing-data conditions, the final category, and a plain-language explanation.</p>
         <a class="text-link" href="/methodology">Read the full methodology →</a>
       </div>
     </section>
@@ -388,7 +419,7 @@
         <aside class="principle-card">
           <span>Guiding principle</span>
           <strong>Further investigation, not automatic judgment.</strong>
-          <p>GeoSafe-FIS supports early understanding and does not replace professional, regulatory, or official assessment.</p>
+          <p>Basafe supports early understanding and does not replace professional, regulatory, or official assessment.</p>
         </aside>
       </div>
     </section>
@@ -413,19 +444,61 @@
     </section>
 
     <!-- PWA SECTION -->
-    <section class="pwa-section section-shell">
+    <section id="install-app" class="pwa-section section-shell">
       <div>
         <p class="eyebrow">Installable web app</p>
-        <h2>Keep GeoSafe-FIS close at hand</h2>
+        <h2>Keep Basafe close at hand</h2>
         <p>Supported devices can install the application for faster repeat visits and offline access to the application shell and previously permitted content.</p>
-        <button class="button button-primary install-button" type="button" data-install id="pwa-install-btn" hidden>Install GeoSafe-FIS</button>
+        <button class="button button-primary install-button" type="button" data-install id="pwa-install-btn" hidden>Install Basafe</button>
       </div>
-      <ul>
-        <li>Home-screen installation</li>
-        <li>Mobile-friendly interface</li>
-        <li>Clear source and synchronization status</li>
-        <li>Honest offline limitations</li>
-      </ul>
+      <div class="pwa-visual-panel">
+        <svg class="pwa-illustration" viewBox="0 0 520 360" role="img" aria-labelledby="pwa-illustration-title">
+          <title id="pwa-illustration-title">Basafe mobile map showing a selected location and three hazard layers</title>
+          <path class="pwa-orbit" d="M47 255c77 72 225 88 356 24 83-41 99-116 57-170"/>
+          <circle class="pwa-orbit-dot" cx="48" cy="255" r="7"/>
+          <g class="pwa-phone">
+            <rect class="pwa-phone-shell" x="146" y="18" width="230" height="324" rx="32"/>
+            <rect class="pwa-screen" x="162" y="51" width="198" height="258" rx="17"/>
+            <rect class="pwa-speaker" x="225" y="31" width="72" height="7" rx="4"/>
+            <path class="pwa-map-land" d="M162 196c38-16 59-2 91-20 30-17 56-8 107-31v164H162V196Z"/>
+            <path class="pwa-map-water" d="M162 225c39-17 71-5 101-22 36-20 62-10 97-31v137H162v-84Z"/>
+            <path class="pwa-map-road" d="M172 268c34-42 59-20 88-56 29-37 52-23 90-72"/>
+            <path class="pwa-map-road pwa-map-road-secondary" d="M180 100c28 22 46 29 71 20 33-13 52 2 93 34"/>
+            <g class="pwa-map-pin">
+              <circle class="pwa-pin-ring" cx="262" cy="173" r="30"/>
+              <path class="pwa-pin" d="M262 119c-24 0-43 18-43 41 0 32 43 70 43 70s43-38 43-70c0-23-19-41-43-41Z"/>
+              <circle class="pwa-pin-center" cx="262" cy="160" r="13"/>
+            </g>
+            <g class="pwa-status-card">
+              <rect x="177" y="65" width="168" height="44" rx="12"/>
+              <circle cx="194" cy="87" r="6"/>
+              <path d="M208 82h79M208 93h54"/>
+            </g>
+            <circle class="pwa-home-button" cx="261" cy="326" r="8"/>
+          </g>
+          <g class="pwa-layer-chip pwa-chip-flood">
+            <rect x="32" y="74" width="126" height="43" rx="13"/>
+            <circle cx="52" cy="95" r="7"/>
+            <path d="M68 90h69M68 101h44"/>
+          </g>
+          <g class="pwa-layer-chip pwa-chip-liq">
+            <rect x="360" y="120" width="136" height="43" rx="13"/>
+            <circle cx="381" cy="141" r="7"/>
+            <path d="M397 136h76M397 147h48"/>
+          </g>
+          <g class="pwa-layer-chip pwa-chip-shake">
+            <rect x="350" y="238" width="143" height="43" rx="13"/>
+            <circle cx="371" cy="259" r="7"/>
+            <path d="M387 254h82M387 265h53"/>
+          </g>
+        </svg>
+        <ul class="pwa-feature-list">
+          <li>Home-screen installation</li>
+          <li>Mobile-friendly interface</li>
+          <li>Clear source and synchronization status</li>
+          <li>Honest offline limitations</li>
+        </ul>
+      </div>
     </section>
 
     <!-- FAQ -->
@@ -435,25 +508,31 @@
         <h2>Know what the system can — and cannot — tell you</h2>
       </div>
       <div class="faq-list">
-        <details><summary>Does GeoSafe-FIS determine whether a place is safe?</summary><p>No. It provides a preliminary relative screening result and never declares a location safe or unsafe.</p></details>
+        <details><summary>Does Basafe determine whether a place is safe?</summary><p>No. It provides a preliminary relative screening result and never declares a location safe or unsafe.</p></details>
         <details><summary>Where does the hazard information come from?</summary><p>From selected configured GeoRiskPH services and appropriate datasets published by mandated agencies, with Basey context when permitted.</p></details>
         <details><summary>Why can some layers be unavailable?</summary><p>A service may be unreachable, outside coverage, invalid, or not yet configured with a verified authorized endpoint.</p></details>
         <details><summary>What does the 0–100 score mean?</summary><p>It is a relative screening output from the configured fuzzy model, not a probability, forecast, or safety grade.</p></details>
         <details><summary>Can the report be used for a building permit or property certification?</summary><p>No. It is not an official hazard certification, zoning approval, engineering clearance, or permit recommendation.</p></details>
-        <details><summary>Is an account required?</summary><p>No. Core mapping, assessment, explanation, and report functions are public.</p></details>
-        <details><summary>Can the application work offline?</summary><p>The application shell and some previously viewed information may be available, but new hazard data and complete assessments normally require a connection.</p></details>
+        <details><summary>Is an account required?</summary><p>No. Core mapping, scoring, explanation, and report functions are public.</p></details>
+        <details><summary>Can the application work offline?</summary><p>The application shell and some previously viewed information may be available, but new hazard data and complete scores normally require a connection.</p></details>
         <details><summary>Who should users consult for an official assessment?</summary><p>Consult the relevant mandated hazard agency and qualified planning, engineering, geological, or geotechnical professionals.</p></details>
       </div>
     </section>
 
     <!-- FINAL CTA -->
     <section class="final-cta">
+      <svg class="final-cta-art" viewBox="0 0 1440 330" aria-hidden="true" preserveAspectRatio="none">
+        <path d="M-30 272C163 210 277 310 461 241s282-26 428 10 269-92 581-36"/>
+        <path d="M-20 304c201-48 323 31 502-20s288-20 434 9 283-55 546-40"/>
+        <circle cx="1240" cy="84" r="84"/>
+        <circle cx="1240" cy="84" r="128"/>
+      </svg>
       <div class="section-shell final-cta-inner">
         <div>
           <p class="eyebrow">Start with the evidence</p>
           <h2>Understand the documented hazard conditions affecting a location.</h2>
         </div>
-        <a class="button button-light button-large" href="/map" id="final-cta-btn">Assess a Location</a>
+        <a class="button button-light button-large" href="/map" id="final-cta-btn">Score a Location</a>
       </div>
     </section>
 
@@ -464,13 +543,13 @@
     <div class="footer-top">
       <div class="footer-brand-col">
         <a class="site-brand footer-brand" href="/">
-          <span class="logo-pin" aria-hidden="true"><i></i></span>
-          <span><strong>GeoSafe-FIS</strong><small>Public Multi-Hazard Mapping · Basey, Samar</small></span>
+          <img class="logo-pin" src="/icons/basafe-logo-256.png" alt="">
+          <span><strong>Basafe</strong><small>Public Multi-Hazard Mapping · Basey, Samar</small></span>
         </a>
         <p>Research-based public decision support using selected available data.</p>
       </div>
       <nav aria-label="Footer navigation" class="footer-nav">
-        <a href="/map">Assessment Map</a>
+        <a href="/map">Scoring Map</a>
         <a href="/data-sources">Data Sources</a>
         <a href="/methodology">Methodology</a>
         <a href="/limitations">Limitations</a>
@@ -513,7 +592,7 @@
 
     <div class="footer-disclaimer">
       <strong>Research-project disclaimer</strong>
-      <p>GeoSafe-FIS is not an official hazard certification, emergency-warning service, zoning approval, or declaration of safety. Map © OpenStreetMap contributors. Government-source attribution appears with each layer and report.</p>
+      <p>Basafe is not an official hazard certification, emergency-warning service, zoning approval, or declaration of safety. Map © OpenStreetMap contributors. Government-source attribution appears with each layer and report.</p>
     </div>
   </footer>
 

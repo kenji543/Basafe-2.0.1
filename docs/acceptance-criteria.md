@@ -1,8 +1,8 @@
-# GeoSafe-FIS Acceptance Criteria
+# Basafe Acceptance Criteria
 
 ## 1. Acceptance policy
 
-GeoSafe-FIS is acceptable when the implemented prototype satisfies the approved assessment workflow and contains none of the excluded identity or administrative scope.
+Basafe is acceptable when the implemented prototype satisfies the approved assessment workflow and contains none of the excluded identity or administrative scope.
 
 Automated evidence comes from the current Python standard-library suite:
 
@@ -104,7 +104,7 @@ A covered complete assessment must return exactly the required flood, liquefacti
   `changed_schema`;
 - complete raw source attributes, layer/field, agency, URL, retrieval/cache
   time, attribution, and warnings;
-- separate GeoSafe-FIS `normalized_value` from 0â€“100 when an exact,
+- separate Basafe `normalized_value` from 0â€“100 when an exact,
   model-reviewed transformation exists;
 - normalization explanation/model version;
 - quality status and notice; and
@@ -296,7 +296,7 @@ The data-source response must include both flattened `items` and structured boun
 
 The interface and report must display the configured disclaimer:
 
-> GeoSafe-FIS is a planning-oriented screening prototype. It does not replace official hazard certifications, site-specific engineering or geotechnical studies, emergency instructions, or decisions by competent authorities. Demonstration data and an unvalidated fuzzy model must not be used as the sole basis for life-safety, permitting, zoning, investment, or development decisions.
+> Basafe is a planning-oriented screening prototype. It does not replace official hazard certifications, site-specific engineering or geotechnical studies, emergency instructions, or decisions by competent authorities. Demonstration data and an unvalidated fuzzy model must not be used as the sole basis for life-safety, permitting, zoning, investment, or development decisions.
 
 - Automated: frontend text contract and assessment/report workflow.
 - Manual: confirm visibility without requiring a tooltip or role-specific page.

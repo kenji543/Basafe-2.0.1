@@ -1,4 +1,4 @@
-"""Framework-free HTTP API dispatcher for GeoSafe-FIS."""
+"""Framework-free HTTP API dispatcher for Basafe."""
 
 from __future__ import annotations
 
@@ -183,7 +183,7 @@ class Api:
                 return Response.json(
                     {
                         "status": "ok",
-                        "application": "GeoSafe-FIS",
+                        "application": "Basafe",
                         "model_version": self.service.model.version,
                         "runtime_data_mode": self.service.runtime_data_mode,
                     }
@@ -383,7 +383,7 @@ class Api:
                         "Content-Type": "application/pdf",
                         "Content-Length": str(len(pdf_content)),
                         "Content-Disposition": (
-                            f'attachment; filename="geosafe-assessment-{public_token[:12]}.pdf"'
+                            f'attachment; filename="basafe-assessment-{public_token[:12]}.pdf"'
                         ),
                         "Cache-Control": "no-store",
                         "X-Report-SHA256": metadata["sha256"],

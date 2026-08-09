@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Import GeoSafe-FIS spatial/reference data without requiring GIS packages.
+"""Import Basafe spatial/reference data without requiring GIS packages.
 
 GeoJSON and coordinate CSV files are supported by the Python standard library.
 Fiona and pyproj are used opportunistically for additional vector formats and
@@ -1242,7 +1242,7 @@ def import_dataset(options: ImportOptions) -> ImportResult:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Validate and import a GeoSafe-FIS dataset into SQLite. GeoJSON and "
+            "Validate and import a Basafe dataset into SQLite. GeoJSON and "
             "coordinate CSV need no third-party packages."
         )
     )

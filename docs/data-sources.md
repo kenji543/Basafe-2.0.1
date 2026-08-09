@@ -1,8 +1,8 @@
-# GeoSafe-FIS Data-Source Register
+# Basafe Data-Source Register
 
 ## 1. Status vocabulary
 
-GeoSafe-FIS keeps source reachability separate from authority and point
+Basafe keeps source reachability separate from authority and point
 availability:
 
 | Dimension | Examples | Meaning |
@@ -29,7 +29,7 @@ Observed metadata and service behavior were rechecked on 2026-08-05.
 | Ground shaking | Four fixed official Region VIII 2014 deterministic-scenario KMZs; public `PHIVOLCSPublic/GroundShaking/MapServer/0` retained for metadata | Philippine Institute of Volcanology and Seismology | Scenario rasters cover Basey; PEIS values are sampled to a local grid and maximum scenario intensity retained | `limited` derived data, about 550 m cells; public feature layer itself has no Basey point coverage |
 | Historical incidents | None authorized/configured | To be established by deployment data owner | Not configured | Display only authorized records with date, location, provenance, and completeness limits |
 | CLUP references | None authorized/configured | To be established from the adopted Basey CLUP | Not configured | Requires edition, section/map reference, adoption status, spatial meaning, and use terms |
-| Fuzzy model | `config/fuzzy_model.json`, version `0.5.2-demo` | GeoSafe-FIS demonstration configuration | Software-readable and version controlled | All transformations, memberships, rules, weights, and thresholds need expert validation |
+| Fuzzy model | `config/fuzzy_model.json`, version `0.5.2-demo` | Basafe demonstration configuration | Software-readable and version controlled | All transformations, memberships, rules, weights, and thresholds need expert validation |
 
 The runtime source registry is
 `config/ulap-services.generated.json`. Deployment-data requirements and the
@@ -86,7 +86,7 @@ Both are EPSG:4326 polygon layers. The live filter
 `city_name='Basey' AND prov_name='Samar'` returned one municipality and 51
 barangays. The municipal record used PSGC `0806002000`.
 
-All configured ArcGIS requests are made by the GeoSafe-FIS backend. Service
+All configured ArcGIS requests are made by the Basafe backend. Service
 tokens, if later required, are server-side environment values and must not
 appear in browser code, logs, saved assessment source URLs, or reports.
 

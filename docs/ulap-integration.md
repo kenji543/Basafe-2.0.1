@@ -2,7 +2,7 @@
 
 ## 1. Purpose and scope
 
-GeoSafe-FIS uses a backend-only ArcGIS REST integration as a controlled data
+Basafe uses a backend-only ArcGIS REST integration as a controlled data
 synchronization and diagnostic source. Normal map and assessment requests use
 validated local snapshots, so an upstream outage cannot interrupt an already
 provisioned deployment. Official source values remain separate from the fuzzy
@@ -47,7 +47,7 @@ The following legacy path applies only when
 
 ```text
 browser
-  → GeoSafe-FIS /api/v1 endpoint
+  → Basafe /api/v1 endpoint
     → coordinate and Basey workflow validation
       → ServiceRegistry
       → MetadataValidator / BoundaryProvider / HazardProvider

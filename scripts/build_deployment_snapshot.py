@@ -84,7 +84,7 @@ def build_snapshot(source: Path, destination: Path, *, force: bool = False) -> s
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Create a sanitized GeoSafe-FIS deployment database."
+        description="Create a sanitized Basafe deployment database."
     )
     parser.add_argument("--source", type=Path, default=Path("data/geosafe.db"))
     parser.add_argument(

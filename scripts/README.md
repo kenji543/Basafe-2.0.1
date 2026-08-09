@@ -1,4 +1,4 @@
-# GeoSafe-FIS data preparation
+# Basafe data preparation
 
 These command-line tools keep dataset preparation outside the Web-GIS
 interface. They create no accounts, roles, approval queues, or administrative

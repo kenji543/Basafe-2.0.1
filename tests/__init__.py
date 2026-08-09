@@ -1,1 +1,1 @@
-"""GeoSafe-FIS automated tests."""
+"""Basafe automated tests."""

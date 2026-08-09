@@ -1,6 +1,6 @@
 {
-  "model_version": "0.5.4-demo",
-  "model_name": "GeoSafe-FIS multi-hazard vulnerability screening model",
+  "model_version": "0.5.5-demo",
+  "model_name": "Basafe multi-hazard vulnerability screening model",
   "status": "DEMONSTRATION MODEL â€” NOT YET VALIDATED FOR OFFICIAL PLANNING USE",
   "effective_date": "2026-07-23",
   "validation_notes": [
@@ -9,7 +9,7 @@
     "Historical incidents and CLUP references are displayed as decision context; they are not numerical fuzzy inputs in this model version.",
     "An unavailable required input produces an incomplete assessment. It is never converted to zero or interpreted as low vulnerability.",
     "ULAP classification-to-index transformations below are transparent capstone assumptions and require validation by qualified MGB, PHIVOLCS, DRRM, geotechnical, and planning specialists.",
-    "Official ULAP codes and labels remain unchanged in the source result; the separate normalized index is used only by the GeoSafe-FIS fuzzy model."
+    "Official ULAP codes and labels remain unchanged in the source result; the separate normalized index is used only by the Basafe fuzzy model."
   ],
   "inputs": [
     {

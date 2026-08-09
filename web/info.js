@@ -5,9 +5,9 @@
     "/limitations": {
       eyebrow: "Scope and interpretation",
       title: "Limitations",
-      summary: "Use GeoSafe-FIS as a transparent first screening step—not as a final decision, warning service, or declaration of safety.",
+      summary: "Use Basafe as a transparent first screening step—not as a final decision, warning service, or declaration of safety.",
       sections: [
-        ["What the system covers", "GeoSafe-FIS combines selected flood, liquefaction, and ground-shaking evidence for locations within Basey, Samar. A complete screening result is available only when every required verified input is present."],
+        ["What the system covers", "Basafe combines selected flood, liquefaction, and ground-shaking evidence for locations within Basey, Samar. A complete score is available only when every required verified input is present."],
         ["What the system does not do", "It does not forecast disasters, monitor emergencies in real time, inspect a site, evaluate a structure, certify a property, approve land use, issue a permit recommendation, or declare a location safe or unsafe."],
         ["Data limitations", "Every result depends on the date, scale, coverage, classification, availability, and permitted use of its cited sources. A missing feature or unavailable service is not interpreted as Low."],
         ["Model limitations", "The fuzzy configuration remains a demonstration research model until qualified hazard, planning, geotechnical, and disaster-risk specialists validate its transformations, weights, rules, membership functions, and thresholds."],
@@ -16,11 +16,11 @@
     },
     "/about": {
       eyebrow: "Research project",
-      title: "About GeoSafe-FIS",
+      title: "About Basafe",
       summary: "A public Web-GIS research prototype that makes selected hazard evidence, model reasoning, uncertainty, and limitations easier to understand.",
       sections: [
-        ["Purpose", "GeoSafe-FIS explores how verified government hazard classifications and Basey geographic context can be organized into a reproducible, plain-language preliminary screening workflow."],
-        ["Public access", "Residents, property researchers, students, community organizations, visitors, businesses, planners, and government personnel use the same public functions. Core mapping and assessment features require no account."],
+        ["Purpose", "Basafe explores how verified government hazard classifications and Basey geographic context can be organized into a reproducible, plain-language preliminary screening workflow."],
+        ["Public access", "Residents, property researchers, students, community organizations, visitors, businesses, planners, and government personnel use the same public functions. Core mapping and scoring features require no account."],
         ["Institutional boundaries", "GeoRiskPH and mandated government agencies remain authoritative hazard sources. Basey municipal offices are not represented as system administrators, validators, adopters, approving authorities, or official recipients."],
         ["Research team", "Developed as an Information Technology capstone research project at Eastern Visayas State University. Project contact information will be published here when approved for public release."]
       ]
@@ -28,24 +28,24 @@
     "/privacy": {
       eyebrow: "Data handling",
       title: "Privacy",
-      summary: "GeoSafe-FIS minimizes personal data and keeps public assessment functions available without registration.",
+      summary: "Basafe minimizes personal data and keeps public scoring functions available without registration.",
       sections: [
-        ["Private assessment access", "The current prototype does not require an account. Selected coordinates, source responses, model explanations, and generated-report metadata are stored for reproducibility, but access uses an unguessable assessment token retained by this device. The service does not publish a shared assessment history."],
-        ["Location permission", "Current-location access is requested only after the user activates the feature. The browser supplies coordinates after permission; GeoSafe-FIS does not continuously track the device."],
+        ["Private score access", "The current prototype does not require an account. Selected coordinates, source responses, model explanations, and generated-report metadata are stored for reproducibility, but access uses an unguessable score token retained by this device. The service does not publish a shared score history."],
+        ["Location permission", "Current-location access is requested only after the user activates the feature. The browser supplies coordinates after permission; Basafe does not continuously track the device."],
         ["Local and offline data", "The service worker stores versioned application files and may retain permitted previously viewed responses. Cached information is not presented as current without its retrieval and expiration status."],
         ["Historical records", "Personally identifiable incident data must not be published. Local CLUP, CDRA, and historical information is displayed only when permitted and appropriately prepared."],
-        ["Optional accounts", "Accounts are not implemented. If added later, they may support personal history and saved locations only; public assessments will remain available without sign-in."]
+        ["Optional accounts", "Accounts are not implemented. If added later, they may support personal history and saved locations only; public scoring will remain available without sign-in."]
       ]
     },
     "/offline": {
       eyebrow: "Connection status",
       title: "Offline information",
-      summary: "The application shell can remain available, but new hazard data and complete assessments normally require current network access.",
+      summary: "The application shell can remain available, but new hazard data and complete scores normally require current network access.",
       sections: [
         ["Available offline", "Previously loaded informational pages and the application shell may remain available. Previously generated reports may be reopened only when stored locally and permitted by source policy."],
-        ["Requires a connection", "Location searches, current source status, live hazard queries, and complete new assessments require access to the GeoSafe-FIS backend and its configured sources."],
-        ["Stale information", "Cached source data retains retrieval and expiration metadata. GeoSafe-FIS never implies that cached information is current and never converts missing required inputs into a complete result."],
-        ["Next step", "Reconnect and retry the assessment when current source access is restored."]
+        ["Requires the Basafe service", "Location searches and new scoring requests require access to the Basafe backend. Scoring uses available local hazard data; upstream source availability is reported separately and matters when maintainers synchronize or replace that data."],
+        ["Stale information", "Cached source data retains retrieval and expiration metadata. Basafe never implies that cached information is current and never converts missing required inputs into a complete result."],
+        ["Next step", "Reconnect and calculate the score again when current source access is restored."]
       ]
     }
   };
@@ -57,7 +57,7 @@
   const sections = document.getElementById("page-sections");
 
   function renderPage(page) {
-    document.title = `${page.title} | GeoSafe-FIS`;
+    document.title = `${page.title} | Basafe`;
     title.textContent = page.title;
     eyebrow.textContent = page.eyebrow;
     summary.textContent = page.summary;
@@ -65,12 +65,12 @@
   }
 
   async function renderSources() {
-    const page = { eyebrow: "Source transparency", title: "Data Sources", summary: "Review the organizations, layers, retrieval state, and limitations attached to the evidence used by GeoSafe-FIS." };
-    document.title = "Data Sources | GeoSafe-FIS";
+    const page = { eyebrow: "Source transparency", title: "Data Sources", summary: "Review the organizations, layers, retrieval state, and limitations attached to the evidence used by Basafe." };
+    document.title = "Data Sources | Basafe";
     title.textContent = page.title;
     eyebrow.textContent = page.eyebrow;
     summary.textContent = page.summary;
-    sections.innerHTML = `<section class="info-card"><h2>Current configured services</h2><div id="source-live" class="source-live" role="status">Loading current source status…</div></section><section class="info-card"><h2>Supporting Basey data</h2><p>Municipal and barangay boundaries, permitted CLUP and CDRA references, appropriately prepared historical disaster records, and other approved local context may be displayed with provenance. Their inclusion does not imply LGU administration or endorsement.</p></section><section class="info-card"><h2>Source policy</h2><p>GeoSafe-FIS does not create fake service URLs, classifications, or agency endorsements. Missing, invalid, out-of-coverage, expired, or unreachable data remains explicit and can block a complete assessment.</p></section>`;
+    sections.innerHTML = `<section class="info-card"><h2>Current configured services</h2><div id="source-live" class="source-live" role="status">Loading current source status…</div></section><section class="info-card"><h2>Supporting Basey data</h2><p>Municipal and barangay boundaries, permitted CLUP and CDRA references, appropriately prepared historical disaster records, and other approved local context may be displayed with provenance. Their inclusion does not imply LGU administration or endorsement.</p></section><section class="info-card"><h2>Source policy</h2><p>Basafe does not create fake service URLs, classifications, or agency endorsements. Missing, invalid, out-of-coverage, expired, or unreachable data remains explicit and can block a complete score.</p></section>`;
     const live = document.getElementById("source-live");
     try {
       const response = await fetch("/api/v1/ulap/services", { headers: { Accept: "application/json" } });
@@ -100,7 +100,7 @@
 
   const path = location.pathname.replace(/\/$/, "") || "/";
   if (path === "/data-sources") renderSources();
-  else renderPage(pages[path] || pages["/about"]);
+  else renderPage(pages[path] || pages["/offline"]);
 
   const menuButton = document.querySelector(".menu-toggle");
   const navigation = document.querySelector(".site-nav");

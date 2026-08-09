@@ -3,7 +3,7 @@
 ## 1. Mapping policy
 
 These mappings describe the ArcGIS schemas observed live on 2026-07-23 and the
-corresponding GeoSafe-FIS source objects. They are runtime expectations, not a
+corresponding Basafe source objects. They are runtime expectations, not a
 license to trust a stale schema.
 
 For every request, the backend must:
@@ -18,7 +18,7 @@ For every request, the backend must:
 6. reject a missing field or unknown code as missing model evidence rather
    than inventing a label or number.
 
-Official codes and labels are immutable source evidence. GeoSafe-FIS model
+Official codes and labels are immutable source evidence. Basafe model
 indices, memberships, and the combined screening score are separate derived
 values. See [fuzzy-data-transformations.md](fuzzy-data-transformations.md).
 
@@ -46,7 +46,7 @@ The live `fscode` coded-value domain was:
 
 Normalized source response mapping:
 
-| GeoSafe-FIS field | ArcGIS/source value |
+| Basafe field | ArcGIS/source value |
 | --- | --- |
 | `hazard` | constant `flood` |
 | `status` | request/coverage result, for example `available` |
@@ -106,7 +106,7 @@ its ArcGIS field definition and provider semantics support that conversion.
 
 ## 4. Municipal boundary
 
-| GeoSafe-FIS identity | Live ArcGIS field |
+| Basafe identity | Live ArcGIS field |
 | --- | --- |
 | Municipality | `city_name` |
 | Municipality code | `city_code` |
@@ -134,7 +134,7 @@ preserved for display.
 
 ## 5. Barangay boundary
 
-| GeoSafe-FIS identity | Live ArcGIS field |
+| Basafe identity | Live ArcGIS field |
 | --- | --- |
 | Barangay | `brgy_name` |
 | Barangay code | `brgy_code` |

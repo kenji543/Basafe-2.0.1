@@ -2,7 +2,7 @@
 
 ## 1. Principle
 
-GeoSafe-FIS must explain why evidence is unavailable. “No data” is too
+Basafe must explain why evidence is unavailable. “No data” is too
 ambiguous, and missing evidence must never become zero, Low, Safe, or a reused
 previous result.
 

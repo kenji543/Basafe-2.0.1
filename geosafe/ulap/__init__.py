@@ -1,7 +1,7 @@
 """Server-side GeoRisk Philippines ULAP integration primitives.
 
 Nothing in this package is intended for direct browser use.  Callers should
-expose only normalized, sanitized GeoSafe-FIS responses through the app API.
+expose only normalized, sanitized Basafe responses through the app API.
 """
 
 from .arcgis_client import ArcGISClient

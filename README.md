@@ -1,6 +1,6 @@
-# GeoSafe-FIS
+# Basafe
 
-GeoSafe-FIS is a focused Web-GIS decision-support prototype for Basey, Samar.
+Basafe is a focused Web-GIS decision-support prototype for Basey, Samar.
 Its backend identifies a selected location and barangay from validated local
 snapshots, retrieves locally stored MGB/PHIVOLCS hazard evidence, explains
 source and model transformations, and generates a PDF assessment report.

@@ -1,8 +1,8 @@
-# GeoSafe-FIS Fuzzy-Inference Methodology
+# Basafe Fuzzy-Inference Methodology
 
 ## 1. Intended use
 
-The GeoSafe-FIS fuzzy model produces an explainable **vulnerability screening** result for a selected location in Basey, Samar. It combines the available flood, liquefaction, and ground-shaking inputs configured for the model version. It is a planning-oriented decision-support aid, not an engineering analysis, evacuation order, legal zoning determination, development clearance, insurance rating, or guarantee of safety.
+The Basafe fuzzy model produces an explainable **vulnerability screening** result for a selected location in Basey, Samar. It combines the available flood, liquefaction, and ground-shaking inputs configured for the model version. It is a planning-oriented decision-support aid, not an engineering analysis, evacuation order, legal zoning determination, development clearance, insurance rating, or guarantee of safety.
 
 Historical incidents and CLUP references are displayed as context. They affect the score only if a future, domain-expert-validated model explicitly defines them as input variables. The approved demonstration model must not silently turn contextual records into undocumented score adjustments.
 
@@ -63,7 +63,7 @@ The approved input variables are:
 | `ground_shaking` | Available ground-shaking intensity/susceptibility classification at the selected point | Yes | No verified source currently configured |
 
 Each live input record retains the raw source code, unchanged official label,
-complete source attributes, and a separate GeoSafe-FIS `normalized_value` on
+complete source attributes, and a separate Basafe `normalized_value` on
 the model's 0â€“100 domain. Version `0.5.1-demo` defines exact-code lookups:
 
 | Source field | Code-to-model values |
@@ -72,7 +72,7 @@ the model's 0â€“100 domain. Version `0.5.1-demo` defines exact-code lookups
 | Liquefaction `lccode` | `01 â†’ 50`, `02 â†’ 25`, `03 â†’ 50`, `04 â†’ 80`, `05 â†’ 15`, `06 â†’ 55`, `07 â†’ 90` |
 | Ground shaking | No mapping; required source unavailable |
 
-These are GeoSafe-FIS demonstration transformations, not official numerical
+These are Basafe demonstration transformations, not official numerical
 ratings. They require domain-expert validation. Liquefaction codes are mapped
 individually because their labels span different classification families and
 their identifiers do not form a simple severity sequence.
@@ -302,7 +302,7 @@ Location-matched incident output states whether a record is:
 
 The absence of a matching historical record is reported as â€œno matching record is available in the loaded dataset,â€ not â€œno incident occurred.â€
 
-CLUP output states whether a reference geometry covers the point, is associated with the barangay, or is municipality-wide. References include available document/section and source metadata. GeoSafe-FIS does not decide legal conformity, land-use approval, structural suitability, or permitting status.
+CLUP output states whether a reference geometry covers the point, is associated with the barangay, or is municipality-wide. References include available document/section and source metadata. Basafe does not decide legal conformity, land-use approval, structural suitability, or permitting status.
 
 ## 13. Recommendations
 

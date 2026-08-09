@@ -171,7 +171,7 @@ class AssessmentWorkflowTests(unittest.TestCase):
         self.assertEqual(report.status, 200)
         self.assertEqual(report.headers["Content-Type"], "application/pdf")
         self.assertTrue(report.body.startswith(b"%PDF-1.4"))
-        self.assertIn(b"GeoSafe-FIS Assessment Report", report.body)
+        self.assertIn(b"Basafe Assessment Report", report.body)
         self.assertIn(b"DISCLAIMER", report.body)
         self.assertIn(b"screening prototype", report.body)
         self.assertIn(b"DEMONSTRATION", report.body)

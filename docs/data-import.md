@@ -1,8 +1,8 @@
-# GeoSafe-FIS Data Import Guide
+# Basafe Data Import Guide
 
 ## 1. Purpose and boundary
 
-Dataset preparation is a command-line deployment task. GeoSafe-FIS has no browser upload, publication, approval, administrator, or content-management workflow.
+Dataset preparation is a command-line deployment task. Basafe has no browser upload, publication, approval, administrator, or content-management workflow.
 
 The implemented import tool is `scripts/import_dataset.py` for a single
 municipal boundary, barangay, hazard, incident, or CLUP dataset. The repository

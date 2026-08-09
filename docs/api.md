@@ -1,4 +1,4 @@
-# GeoSafe-FIS API Contract
+# Basafe API Contract
 
 ## 1. Conventions
 
@@ -227,7 +227,7 @@ Returns a live GeoJSON `FeatureCollection`, `status`, source/domain/cache
 `dataset` object, and `notices`. `{id-or-slug}` is one of the three hazard
 keys. The backend obtains the live Basey municipal extent, queries only that
 envelope with pagination, and adds the current official domain label to each
-feature. It does not attach a GeoSafe-FIS normalized model value to source map
+feature. It does not attach a Basafe normalized model value to source map
 geometry.
 
 The ground-shaking response is an empty FeatureCollection with
@@ -356,7 +356,7 @@ The response is the saved assessment snapshot with links:
         },
         "normalized_value": 75,
         "model_version": "0.5.1-demo",
-        "notice": "This normalized index is a GeoSafe-FIS model transformation, not an official agency numerical rating."
+        "notice": "This normalized index is a Basafe model transformation, not an official agency numerical rating."
       },
       "source": {},
       "warnings": [],
@@ -399,7 +399,7 @@ The response is the saved assessment snapshot with links:
 ```
 
 For live evidence, `normalized_fraction` is only the compatibility rendering
-of the configured GeoSafe-FIS model index divided by 100. It is not an
+of the configured Basafe model index divided by 100. It is not an
 official source value. `model_transformation` is the authoritative explanation
 of how the raw code entered this model version.
 

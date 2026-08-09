@@ -1,7 +1,7 @@
-# GeoSafe-FIS Mandatory Post-Generation Evaluation
+# Basafe Mandatory Post-Generation Evaluation
 
 Evaluation date: 2026-08-05  
-Canonical specification: the original full GeoSafe-FIS build prompt supplied by the user  
+Canonical specification: the original full Basafe build prompt supplied by the user
 Evaluated build: application package `0.5.0`, fuzzy model `0.5.1-demo`, frontend assets `0.5.5`
 
 ## Overall objective status
@@ -10,7 +10,7 @@ Evaluated build: application package `0.5.0`, fuzzy model `0.5.1-demo`, frontend
 
 ## Executive summary
 
-GeoSafe-FIS is a coherent, functioning, safety-conscious research prototype. Its public landing page, Basey map, verified municipal/barangay boundaries, location selection, incomplete-assessment workflow, explainability surfaces, saved snapshots, PDF generation, source allowlisting, and missing-data safeguards are implemented and supported by automated or manual evidence.
+Basafe is a coherent, functioning, safety-conscious research prototype. Its public landing page, Basey map, verified municipal/barangay boundaries, location selection, incomplete-assessment workflow, explainability surfaces, saved snapshots, PDF generation, source allowlisting, and missing-data safeguards are implemented and supported by automated or manual evidence.
 
 The canonical objective is not met because mandatory critical gates fail:
 

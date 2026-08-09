@@ -89,7 +89,7 @@ def _download_official_kmz(url: str) -> bytes:
         raise SnapshotSyncError("Ground-shaking source URL is not allowlisted.")
     request = urllib.request.Request(
         url,
-        headers={"User-Agent": "GeoSafe-FIS-Snapshot-Sync/1.0"},
+        headers={"User-Agent": "Basafe-Snapshot-Sync/1.0"},
     )
     try:
         with urllib.request.urlopen(request, timeout=120) as response:

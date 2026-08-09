@@ -88,11 +88,13 @@
     marker: null,
     selection: null,
     assessment: null,
+    assessmentRunning: false,
     mapNotices: new Set(),
     recent: []
   };
 
   const els = {};
+  let controlsReturnFocus = null;
 
   function cacheElements() {
     [
@@ -109,7 +111,7 @@
       "download-report", "report-dialog", "close-report",
       "report-preview", "print-preview", "download-report-dialog",
       "toast-region", "use-location", "reset-map", "open-controls",
-      "close-controls", "mobile-assess", "start-new-assessment"
+      "close-controls", "controls-backdrop", "mobile-assess", "start-new-assessment"
     ].forEach((id) => {
       els[id] = document.getElementById(id);
     });
@@ -213,7 +215,20 @@
   }
 
   function statusMessage(status, fallback) {
-    return HAZARD_STATUS_MESSAGES[normalizeStatus(status)] || fallback || statusLabel(status);
+    const normalized = normalizeStatus(status);
+    return HAZARD_STATUS_MESSAGES[normalized] || fallback || statusLabel(status);
+  }
+
+  function hazardClassificationPresentation(hazard) {
+    const label = textValue(hazard?.officialLabel, `Code ${textValue(hazard?.officialCode)}`);
+    const mappedNone = /^(none|no susceptibility|not susceptible|no mapped susceptibility)$/i.test(label.trim());
+    return {
+      label,
+      pointLabel: mappedNone ? `${label} (mapped class)` : label,
+      note: mappedNone
+        ? `The source explicitly reports “${label}” at this point. This is mapped source evidence—not missing data and not a declaration that the site is safe.`
+        : null
+    };
   }
 
   function safeSourceUrl(value) {
@@ -329,7 +344,7 @@
   function initMap() {
     if (!window.L) {
       els.map.classList.add("is-unavailable");
-      els.map.innerHTML = `<div class="empty-api-block"><strong>Interactive map library unavailable.</strong><br>You can still enter coordinates above when the assessment service is available.</div>`;
+      els.map.innerHTML = `<div class="empty-api-block"><strong>Interactive map library unavailable.</strong><br>You can still enter coordinates above when the scoring service is available.</div>`;
       els["map-loading"].hidden = true;
       setMapNotice("leaflet", "The interactive map could not load. Coordinate entry remains available.");
       return;
@@ -777,8 +792,8 @@
     state.ulapStatus = {
       status: missing.length ? "degraded" : "available",
       notice: missing.length
-        ? `Local snapshot mode is active. Missing snapshots: ${missing.map((item) => item.label).join(", ")}.`
-        : "All required local hazard snapshots are active.",
+        ? `Missing local hazard data: ${missing.map((item) => item.label).join(", ")}.`
+        : "All required local hazard data is active.",
       runtimeDataMode: "snapshot"
     };
     state.ulapStatusLoaded = true;
@@ -813,12 +828,12 @@
       state.ulapStatus?.notice
     );
     els["ulap-health-summary"].innerHTML = `
-      <strong>${escapeHtml(statusMessage(rootStatus, snapshotMode ? "Local snapshot status" : "ULAP service status"))}</strong>
-      <span>${escapeHtml(textValue(summary, checkedAt ? `Last checked ${formatDateTime(checkedAt)}` : snapshotMode ? "Snapshot import time is shown per dataset" : "Live validation time not reported"))}</span>`;
+      <strong>${escapeHtml(statusMessage(rootStatus, snapshotMode ? "Local hazard data status" : "Source service status"))}</strong>
+      <span>${escapeHtml(textValue(summary, checkedAt ? `Last checked ${formatDateTime(checkedAt)}` : snapshotMode ? "Import time is shown per dataset" : "Live validation time not reported"))}</span>`;
 
     if (!state.ulapServices.length) {
-      els["ulap-service-list"].innerHTML = `<p class="muted">No validated ${snapshotMode ? "local snapshot" : "ULAP service"} records were returned. Required hazards remain unavailable.</p>`;
-      setApiStatus(kind === "danger" ? "offline" : "online", `${snapshotMode ? "Snapshots" : "ULAP"}: ${statusLabel(rootStatus)}`);
+      els["ulap-service-list"].innerHTML = `<p class="muted">No validated ${snapshotMode ? "local hazard data" : "source service"} records were returned. Required hazards remain unavailable.</p>`;
+      setApiStatus(kind === "danger" ? "offline" : "online", `${snapshotMode ? "Local hazard data" : "Source services"}: ${statusLabel(rootStatus)}`);
       return;
     }
     const serviceRows = state.ulapServices.map((service) => {
@@ -848,16 +863,15 @@
     );
     missingRequired.forEach((definition) => {
       serviceRows.push(`<article class="service-item">
-        <div><strong>${escapeHtml(definition.label)}</strong><small>No validated ${snapshotMode ? "local snapshot is active" : "ULAP endpoint is configured"}.</small></div>
+        <div><strong>${escapeHtml(definition.label)}</strong><small>No validated ${snapshotMode ? "local data is active" : "source endpoint is configured"}.</small></div>
         <span class="badge neutral">Unavailable</span>
       </article>`);
     });
     els["ulap-service-list"].innerHTML = serviceRows.join("");
     const unavailableCount = state.ulapServices.filter((service) => !AVAILABLE_HAZARD_STATUS.has(serviceStatus(service))).length + missingRequired.length;
-    setApiStatus(kind === "danger" ? "offline" : "online", unavailableCount ? `ULAP partial · ${unavailableCount} unavailable` : "ULAP services available");
     setApiStatus(kind === "danger" ? "offline" : "online", unavailableCount
-      ? `${snapshotMode ? "Local snapshots" : "ULAP"} partial - ${unavailableCount} unavailable`
-      : `${snapshotMode ? "Local snapshots" : "ULAP services"} available`);
+      ? `${snapshotMode ? "Local hazard data" : "Source services"} partial - ${unavailableCount} unavailable`
+      : `${snapshotMode ? "Local hazard data" : "Data services"} available`);
   }
 
   function renderHazardControls() {
@@ -873,7 +887,7 @@
       const attribution = service ? serviceAttribution(service) : "No verified endpoint configured";
       const snapshotMeta = service && state.runtimeDataMode === "snapshot"
         ? [
-            "Local snapshot",
+            "Local data",
             textValue(firstDefined(service.quality_status, service.metadata?.quality_status), "").trim(),
             Number.isFinite(Number(service.feature_count)) ? `${Number(service.feature_count).toLocaleString()} features` : null
           ].filter(Boolean).join(" · ")
@@ -1217,18 +1231,18 @@
       setMapNotice("data", null);
     }
     if (ulapFailures.length) {
-      state.ulapStatus = { status: "service_error", message: "Hazard snapshot status could not be retrieved." };
+      state.ulapStatus = { status: "service_error", message: "Hazard data status could not be retrieved." };
       state.ulapStatusLoaded = true;
       state.ulapStatusFailed = true;
       renderUlapHealth();
       renderHazardControls();
-      setMapNotice("ulap", "One or more local hazard snapshots are unavailable. A complete assessment is blocked when required evidence is missing.");
+      setMapNotice("ulap", "One or more required hazard datasets are unavailable. The score remains incomplete until the evidence is available.");
     } else {
       setMapNotice("ulap", null);
     }
     renderUlapHealth();
     els["map-data-state"].innerHTML = spatialLayers === 2
-      ? `<strong>Data status:</strong> boundary (${escapeHtml(state.boundaryStatus)}), barangays (${escapeHtml(state.barangayStatus)}), hazards (${escapeHtml(state.runtimeDataMode === "snapshot" ? "Local snapshots" : statusLabel(firstDefined(state.ulapStatus?.overallStatus, state.ulapStatus?.overall_status, state.ulapStatus?.status, "pending_verification")))})`
+      ? `<strong>Data status:</strong> boundary (${escapeHtml(state.boundaryStatus)}), barangays (${escapeHtml(state.barangayStatus)}), hazards (${escapeHtml(state.runtimeDataMode === "snapshot" ? "Local data" : statusLabel(firstDefined(state.ulapStatus?.overallStatus, state.ulapStatus?.overall_status, state.ulapStatus?.status, "pending_verification")))})`
       : `<strong>Data status:</strong> ${spatialLayers}/2 boundary layers loaded`;
     if (state.selection && state.selection.inside === null && !state.selection.checking) {
       const identified = await identifyLocation(state.selection.latitude, state.selection.longitude);
@@ -1380,12 +1394,23 @@
 
   function resetResultView() {
     state.assessment = null;
+    state.assessmentRunning = false;
     els["results-empty"].hidden = false;
     els["results-loading"].hidden = true;
     els["results-content"].hidden = true;
     els["results-content"].innerHTML = "";
     els["result-actions"].hidden = true;
     setAssessmentStatus("neutral", "Not started");
+    const runLabel = els["run-assessment"]?.querySelector("span");
+    if (runLabel) runLabel.textContent = "Calculate score";
+    syncMobileAssessmentAction();
+  }
+
+  function syncMobileAssessmentAction() {
+    const button = els["mobile-assess"];
+    if (!button) return;
+    button.hidden = Boolean(state.assessment || state.assessmentRunning);
+    button.disabled = state.selection?.inside !== true || state.assessmentRunning;
   }
 
   async function selectLocation(latitude, longitude, source = "selection", label = "") {
@@ -1403,6 +1428,7 @@
     state.liveHazardCoordinates = null;
     renderPointHazardStatus();
     state.selection = { latitude: lat, longitude: lng, source, label, checking: true };
+    syncMobileAssessmentAction();
     els.latitude.value = lat.toFixed(6);
     els.longitude.value = lng.toFixed(6);
     els["inside-badge"].className = "badge neutral";
@@ -1418,7 +1444,7 @@
           icon: markerIcon(),
           keyboard: true,
           draggable: true,
-          title: "Selected assessment point"
+          title: "Selected scoring point"
         }).addTo(state.map);
         state.marker.on("dragend", (event) => {
           const point = event.target.getLatLng();
@@ -1464,9 +1490,9 @@
     const barangay = selection.barangay?.name || "Not identified";
     let notice = "";
     if (selection.inside === false) {
-      notice = `<div class="quality-banner danger"><span class="quality-icon"></span><div><strong>Outside the supported area</strong><p>This version of GeoSafe-FIS currently supports locations within Basey, Samar.</p></div></div>`;
+      notice = `<div class="quality-banner danger"><span class="quality-icon"></span><div><strong>Outside the supported area</strong><p>This version of Basafe currently supports locations within Basey, Samar.</p></div></div>`;
     } else if (selection.inside === null) {
-      notice = `<div class="quality-banner"><span class="quality-icon"></span><div><strong>Boundary check unavailable</strong><p>The assessment is disabled until Basey coverage can be confirmed.</p></div></div>`;
+      notice = `<div class="quality-banner"><span class="quality-icon"></span><div><strong>Boundary check unavailable</strong><p>Scoring is disabled until Basey coverage can be confirmed.</p></div></div>`;
     } else if (!selection.barangay) {
       notice = `<div class="quality-banner"><span class="quality-icon"></span><div><strong>Barangay unavailable</strong><p>The point is inside Basey, but a containing barangay was not returned.</p></div></div>`;
     }
@@ -1483,7 +1509,7 @@
       </dl>
       ${notice}`;
     els["run-assessment"].disabled = selection.inside !== true;
-    if (els["mobile-assess"]) els["mobile-assess"].disabled = selection.inside !== true;
+    syncMobileAssessmentAction();
 
     if (state.marker) {
       state.marker.bindPopup(
@@ -1507,7 +1533,7 @@
     els["inside-badge"].textContent = "No point";
     els["selection-summary"].innerHTML = "<p>Search above or click anywhere inside Basey to place a pin.</p>";
     els["run-assessment"].disabled = true;
-    if (els["mobile-assess"]) els["mobile-assess"].disabled = true;
+    syncMobileAssessmentAction();
     els["clear-selection"].disabled = true;
     renderPointHazardStatus();
     resetResultView();
@@ -1704,7 +1730,7 @@
       ),
       attribution: firstDefined(value.attribution, value.copyrightText, value.copyright_text),
       warnings: [
-        ...(isRejectedDemo ? ["A demonstration hazard record was rejected. GeoSafe-FIS requires validated official evidence."] : []),
+        ...(isRejectedDemo ? ["A demonstration hazard record was rejected. Basafe requires validated official evidence."] : []),
         ...normalizeStringList(firstDefined(value.warnings, value.notices, value.qualityWarnings, value.quality_warnings))
       ],
       cache,
@@ -1736,15 +1762,15 @@
       return;
     }
     if (!state.liveHazardResponse) {
-      els["ulap-point-status"].innerHTML = `<p class="muted">Local hazard snapshots will be checked after the point is confirmed inside Basey.</p>`;
+      els["ulap-point-status"].innerHTML = `<p class="muted">Hazard data will be checked after the point is confirmed inside Basey.</p>`;
       return;
     }
     const hazards = pointHazards();
     const retrievedAt = firstDefined(state.liveHazardResponse.retrievedAt, state.liveHazardResponse.retrieved_at);
     els["ulap-point-status"].innerHTML = `
       <div class="point-status-heading">
-        <strong>${escapeHtml(state.runtimeDataMode === "snapshot" ? "Local hazard snapshot" : "Live hazard check")}</strong>
-        <small>${escapeHtml(retrievedAt ? formatDateTime(retrievedAt) : "Snapshot time not reported")}</small>
+        <strong>${escapeHtml(state.runtimeDataMode === "snapshot" ? "Local hazard data" : "Live hazard check")}</strong>
+        <small>${escapeHtml(retrievedAt ? formatDateTime(retrievedAt) : "Data time not reported")}</small>
       </div>
       <div class="point-status-grid">
         ${hazards.map((hazard) => `
@@ -1752,12 +1778,12 @@
             <span>${escapeHtml(hazard.label)}</span>
             <span class="badge ${statusKind(hazard.status)}">${escapeHtml(statusLabel(hazard.status))}</span>
             <small>${escapeHtml(hazard.available
-              ? textValue(hazard.officialLabel, `Code ${textValue(hazard.officialCode)}`)
+              ? hazardClassificationPresentation(hazard).pointLabel
               : statusMessage(hazard.status, hazard.statusDetail))}</small>
           </div>`).join("")}
       </div>
       ${hazards.some((hazard) => !hazard.available)
-        ? `<p class="point-status-warning">Assessment remains incomplete until all three required sources respond.</p>`
+        ? `<p class="point-status-warning">The score remains incomplete until all three required sources respond.</p>`
         : ""}`;
   }
 
@@ -2389,7 +2415,7 @@
       ...hazards.map((hazard) => hazard.quality).filter(Boolean)
     ];
     if (!facts.complete) {
-      values.unshift("This assessment is incomplete. Missing information has not been interpreted as low vulnerability.");
+      values.unshift("This score is incomplete. Missing information has not been interpreted as low vulnerability.");
     }
     if (hazards.some((hazard) => hazard.missing)) {
       values.push("At least one required hazard input is unavailable.");
@@ -2398,7 +2424,7 @@
       values.push(`${hazard.label}: ${statusMessage(hazard.status, hazard.statusDetail)}.`);
     });
     hazards.filter((hazard) => hazard.cache?.stale).forEach((hazard) => {
-      values.push(`${hazard.label}: cached source data is stale; a complete current assessment must not rely on it silently.`);
+      values.push(`${hazard.label}: cached source data is stale; a complete current score must not rely on it silently.`);
     });
     if (facts.integrityMismatch) {
       values.unshift("Result integrity warning: a score was returned even though a required verified hazard input is unavailable. The interface has suppressed that score and disabled PDF download.");
@@ -2424,19 +2450,20 @@
     const score = !facts.complete || facts.score === null ? "—" : Math.round(facts.score);
     const ringValue = !facts.complete || facts.score === null ? 0 : clamp(facts.score, 0, 100);
     return `
-      <section class="score-card ${facts.complete ? "" : "incomplete"}" aria-label="Vulnerability result">
+      <section class="score-card ${facts.complete ? "" : "incomplete"}" aria-label="Preliminary multi-hazard screening result">
         <div class="score-main">
           <div class="score-ring" style="--score:${ringValue}">
             <span class="score-value">${escapeHtml(score)}</span>
           </div>
           <div class="score-label">
-            <p>${facts.complete ? "Relative screening score · 0–100" : "Assessment status"}</p>
+            <p>${facts.complete ? "Multi-hazard score · 0–100" : "Scoring status"}</p>
             <h3>${escapeHtml(facts.complete ? facts.category : "Incomplete")}</h3>
             <small>${facts.complete
-              ? `${facts.modelIsDemo ? "UNVALIDATED MODEL · " : ""}Model ${escapeHtml(facts.modelVersion)} · screening category`
-              : `${facts.modelIsDemo ? "UNVALIDATED MODEL · " : ""}No three-hazard score is shown until every required verified input is available.`}</small>
+              ? "Preliminary screening result"
+              : `No three-hazard score is shown until every required verified input is available.`}</small>
           </div>
         </div>
+        <p class="score-caution">Preliminary screening only—not a safety certification.</p>
       </section>`;
   }
 
@@ -2447,6 +2474,7 @@
         <div class="hazard-grid">
           ${hazards.map((hazard) => {
             const sourceAvailable = hazard.live?.available === true;
+            const classification = hazardClassificationPresentation(hazard);
             const cache = hazard.cache || cacheMetadata({});
             const serviceLabel = [
               hazard.agency,
@@ -2461,15 +2489,18 @@
                 </div>
 
                 <div class="official-source-value">
-                  <span class="value-label">Official source classification</span>
+                  <span class="value-label">Mapped source classification</span>
                   <strong>${escapeHtml(sourceAvailable
-                    ? textValue(hazard.officialLabel, "Official label not returned")
+                    ? classification.label
                     : "Unavailable")}</strong>
                   ${hazard.officialCode !== undefined && hazard.officialCode !== null
                     ? `<code>${escapeHtml(textValue(hazard.classificationField, "Source code"))}: ${escapeHtml(hazard.officialCode)}</code>`
                     : ""}
                   ${!sourceAvailable
                     ? `<p>${escapeHtml(statusMessage(hazard.status, hazard.statusDetail))}</p>`
+                    : ""}
+                  ${sourceAvailable && classification.note
+                    ? `<p class="classification-note">${escapeHtml(classification.note)}</p>`
                     : ""}
                 </div>
 
@@ -2481,19 +2512,22 @@
                   <small>Model index ${hazard.normalized === null ? "not calculated" : `${escapeHtml(formatValue(hazard.normalized, 2))} / 100`}; not an official agency numerical rating.</small>
                 </div>
 
-                <dl class="hazard-provenance">
-                  <dt>Agency / service</dt><dd>${escapeHtml(textValue(serviceLabel, "Not reported"))}</dd>
-                  <dt>Data date</dt><dd>${escapeHtml(formatDate(hazard.referenceDate))}</dd>
-                  <dt>Retrieved</dt><dd>${escapeHtml(formatDateTime(hazard.retrievedAt))}</dd>
-                  <dt>Applied indicator weight</dt><dd>${hazard.appliedWeight === null ? "Not calculated" : escapeHtml(formatValue(hazard.appliedWeight, 3))} · ${escapeHtml(titleCase(hazard.weightingMethod))}</dd>
-                  <dt>Spatial reference</dt><dd>${escapeHtml(textValue(hazard.spatialReference))}</dd>
-                  <dt>Cache</dt><dd>${escapeHtml(titleCase(cache.source))}${cache.expiresAt ? ` · expires ${escapeHtml(formatDateTime(cache.expiresAt))}` : ""}${cache.stale ? ` <span class="badge danger">Stale</span>` : ""}</dd>
-                </dl>
+                <p class="hazard-date-note"><strong>Source date:</strong> ${escapeHtml(formatDate(hazard.referenceDate))}${hazard.referenceDate ? "" : " · date not reported by the source record"}</p>
 
-                ${hazard.sourceUrl
-                  ? `<a class="source-url" href="${escapeHtml(hazard.sourceUrl)}" target="_blank" rel="noopener noreferrer">Open official layer metadata</a>`
-                  : `<span class="source-url unavailable">Layer URL not reported</span>`}
-                ${hazard.attribution ? `<p class="hazard-attribution">${escapeHtml(hazard.attribution)}</p>` : ""}
+                <details class="hazard-details">
+                  <summary>Source and model details</summary>
+                  <dl class="hazard-provenance">
+                    <dt>Agency / service</dt><dd>${escapeHtml(textValue(serviceLabel, "Not reported"))}</dd>
+                    <dt>Retrieved / imported</dt><dd>${escapeHtml(formatDateTime(hazard.retrievedAt))}</dd>
+                    <dt>Applied indicator weight</dt><dd>${hazard.appliedWeight === null ? "Not calculated" : escapeHtml(formatValue(hazard.appliedWeight, 3))} · ${escapeHtml(titleCase(hazard.weightingMethod))}</dd>
+                    <dt>Spatial reference</dt><dd>${escapeHtml(textValue(hazard.spatialReference))}</dd>
+                    <dt>Local copy / cache</dt><dd>${escapeHtml(titleCase(cache.source))}${cache.expiresAt ? ` · expires ${escapeHtml(formatDateTime(cache.expiresAt))}` : ""}${cache.stale ? ` <span class="badge danger">Stale</span>` : ""}</dd>
+                  </dl>
+                  ${hazard.sourceUrl
+                    ? `<a class="source-url" href="${escapeHtml(hazard.sourceUrl)}" target="_blank" rel="noopener noreferrer">Open official layer metadata</a>`
+                    : `<span class="source-url unavailable">Layer URL not reported</span>`}
+                  ${hazard.attribution ? `<p class="hazard-attribution">${escapeHtml(hazard.attribution)}</p>` : ""}
+                </details>
                 ${hazard.warnings?.length
                   ? `<ul class="hazard-warning-list">${hazard.warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join("")}</ul>`
                   : ""}
@@ -2507,7 +2541,7 @@
     const available = hazards.filter((hazard) => hazard.memberships.length);
     return `
       <section class="result-section">
-        <h3>GeoSafe-FIS fuzzy memberships <span class="badge neutral">Internal 0–1</span></h3>
+        <h3>Basafe fuzzy memberships <span class="badge neutral">Internal 0–1</span></h3>
         ${available.length ? `<div class="memberships">
           ${available.map((hazard) => `
             <div class="membership-group">
@@ -2659,7 +2693,7 @@
         <span class="quality-icon"></span>
         <div><strong>Required information is missing</strong><p>${missing.length
           ? `Unavailable: ${escapeHtml(missing.join(", "))}.`
-          : "The assessment service marked this result incomplete."} Missing data is not low vulnerability.</p></div>
+          : "The scoring service marked this result incomplete."} Missing data is not low vulnerability.</p></div>
       </div>` : ""}
       <section class="result-section result-location-bar">
         <div class="location-result-grid">
@@ -2669,11 +2703,11 @@
       </section>
 
       <div class="result-tabs" id="result-tabs">
-        <nav class="result-tab-nav" role="tablist" aria-label="Assessment sections">
-          <button class="result-tab active" role="tab" aria-selected="true"  aria-controls="rtab-hazards"  id="rtab-btn-hazards">🌊 Hazards</button>
-          <button class="result-tab"        role="tab" aria-selected="false" aria-controls="rtab-model"    id="rtab-btn-model">⚙ Model</button>
-          <button class="result-tab"        role="tab" aria-selected="false" aria-controls="rtab-context"  id="rtab-btn-context">📋 CDRA/CLUP</button>
-          <button class="result-tab"        role="tab" aria-selected="false" aria-controls="rtab-details"  id="rtab-btn-details">📁 Details</button>
+        <nav class="result-tab-nav" role="tablist" aria-label="Score sections">
+          <button class="result-tab active" role="tab" aria-selected="true"  aria-controls="rtab-hazards"  id="rtab-btn-hazards">Hazards</button>
+          <button class="result-tab"        role="tab" aria-selected="false" aria-controls="rtab-model"    id="rtab-btn-model">Model</button>
+          <button class="result-tab"        role="tab" aria-selected="false" aria-controls="rtab-context"  id="rtab-btn-context">CDRA/CLUP</button>
+          <button class="result-tab"        role="tab" aria-selected="false" aria-controls="rtab-details"  id="rtab-btn-details">Details</button>
         </nav>
 
         <div class="result-tab-panels">
@@ -2721,13 +2755,17 @@
 
   function renderAssessment(assessment) {
     state.assessment = assessment;
+    state.assessmentRunning = false;
     const facts = assessmentFacts(assessment);
     els["results-empty"].hidden = true;
     els["results-loading"].hidden = true;
     els["results-content"].innerHTML = buildResultHtml(assessment);
     els["results-content"].hidden = false;
     els["result-actions"].hidden = false;
-    setAssessmentStatus(facts.complete ? "success" : "warning", facts.complete ? "Complete" : "Incomplete");
+    setAssessmentStatus(facts.complete ? "success" : "warning", facts.complete ? "Inputs complete" : "Incomplete");
+    const runLabel = els["run-assessment"]?.querySelector("span");
+    if (runLabel) runLabel.textContent = "Recalculate score";
+    syncMobileAssessmentAction();
     els["download-report"].disabled = !facts.id || facts.integrityMismatch;
     els["download-report-dialog"].disabled = !facts.id || facts.integrityMismatch;
     saveRecent(assessment);
@@ -2761,6 +2799,8 @@
       showToast("Select and confirm a point inside Basey first.", "error");
       return;
     }
+    state.assessmentRunning = true;
+    syncMobileAssessmentAction();
     els["run-assessment"].disabled = true;
     els["results-empty"].hidden = true;
     els["results-content"].hidden = true;
@@ -2837,7 +2877,7 @@
           recommendations: []
         },
         dataQuality: [
-          `Assessment service error: ${error.message}`,
+          `Scoring service error: ${error.message}`,
           "A complete score has not been generated. Missing or unavailable information is not low vulnerability."
         ],
         disclaimer: DISCLAIMER,
@@ -2845,10 +2885,11 @@
       };
       renderAssessment(fallback);
       setAssessmentStatus("warning", "Incomplete");
-      showToast(`Assessment could not be generated: ${error.message}`, "error");
+      showToast(`Score could not be generated: ${error.message}`, "error");
     } finally {
+      state.assessmentRunning = false;
       els["run-assessment"].disabled = state.selection?.inside !== true;
-      if (els["mobile-assess"]) els["mobile-assess"].disabled = state.selection?.inside !== true;
+      syncMobileAssessmentAction();
     }
   }
 
@@ -2865,13 +2906,56 @@
     if (message && current) message.textContent = `${current.textContent}...`;
   }
 
-  function setControlsOpen(open) {
+  function mobileControlsEnabled() {
+    return window.matchMedia("(max-width: 760px)").matches;
+  }
+
+  function syncControlsAccessibility() {
     const rail = document.getElementById("assessment-controls");
-    rail?.classList.toggle("is-open", open);
+    if (!rail) return;
+    const mobile = mobileControlsEnabled();
+    if (!mobile) rail.classList.remove("is-open");
+    const open = mobile && rail.classList.contains("is-open");
+    rail.toggleAttribute("inert", mobile && !open);
+    if (mobile) rail.setAttribute("aria-hidden", String(!open));
+    else rail.removeAttribute("aria-hidden");
     els["open-controls"]?.setAttribute("aria-expanded", String(open));
+    if (els["controls-backdrop"]) els["controls-backdrop"].hidden = !open;
     document.body.classList.toggle("controls-open", open);
-    if (open) rail?.querySelector("input, button")?.focus();
-    else els["open-controls"]?.focus();
+  }
+
+  function setControlsOpen(open, options = {}) {
+    const rail = document.getElementById("assessment-controls");
+    if (!rail) return;
+    const shouldOpen = mobileControlsEnabled() && open;
+    if (shouldOpen) controlsReturnFocus = document.activeElement;
+    rail.classList.toggle("is-open", shouldOpen);
+    syncControlsAccessibility();
+    if (shouldOpen) {
+      window.requestAnimationFrame(() => els["close-controls"]?.focus());
+    } else if (options.restoreFocus !== false && mobileControlsEnabled()) {
+      const target = controlsReturnFocus?.isConnected ? controlsReturnFocus : els["open-controls"];
+      target?.focus();
+      controlsReturnFocus = null;
+    }
+  }
+
+  function keepFocusInsideControls(event) {
+    if (event.key !== "Tab" || !document.body.classList.contains("controls-open")) return;
+    const rail = document.getElementById("assessment-controls");
+    const focusable = Array.from(rail?.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
+    ) || []).filter((element) => element.getClientRects().length && !element.closest("[hidden]"));
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   function recentSummary(assessment) {
@@ -2923,7 +3007,7 @@
 
   function renderHistory() {
     if (!state.recent.length) {
-      els["history-list"].innerHTML = `<p class="muted">No previously generated assessments are available.</p>`;
+      els["history-list"].innerHTML = `<p class="muted">No previously generated scores are available.</p>`;
       return;
     }
     els["history-list"].innerHTML = state.recent.map((item) => `
@@ -2954,7 +3038,7 @@
           longitude: Number(facts.longitude),
           inside: true,
           barangay: { name: facts.barangay },
-          source: "assessment history"
+          source: "score history"
         };
         if (state.map) {
           if (!state.marker) state.marker = L.marker([facts.latitude, facts.longitude], { icon: markerIcon() }).addTo(state.map);
@@ -2968,7 +3052,7 @@
       els["results-loading"].hidden = true;
       els["results-empty"].hidden = false;
       setAssessmentStatus("danger", "Unavailable");
-      showToast(`Could not reload assessment: ${error.message}`, "error");
+      showToast(`Could not reload score: ${error.message}`, "error");
     }
   }
 
@@ -2978,9 +3062,9 @@
     els["report-preview"].innerHTML = `
       <article class="report-sheet">
         <header class="report-brand">
-          <h2>GeoSafe-FIS assessment report</h2>
+          <h2>Basafe scoring report</h2>
           <p>Explainable vulnerability screening · Basey, Samar</p>
-          <div class="report-meta">Assessment ${escapeHtml(textValue(facts.id, "not yet stored"))} · ${escapeHtml(formatDate(facts.createdAt || new Date()))} · Model ${escapeHtml(facts.modelVersion)}</div>
+          <div class="report-meta">Score record ${escapeHtml(textValue(facts.id, "not yet stored"))} · ${escapeHtml(formatDate(facts.createdAt || new Date()))} · Model ${escapeHtml(facts.modelVersion)}</div>
         </header>
         ${buildResultHtml(state.assessment)}
       </article>`;
@@ -3003,7 +3087,7 @@
     if (!state.assessment) return;
     const facts = assessmentFacts(state.assessment);
     if (!facts.id) {
-      showToast("This assessment has no stored identifier, so a generated PDF is not available.", "error");
+      showToast("This score has no stored identifier, so a generated PDF is not available.", "error");
       return;
     }
     if (facts.integrityMismatch) {
@@ -3037,7 +3121,7 @@
         anchor.href = objectUrl;
         anchor.download = filenameFromHeader(
           response.headers.get("content-disposition"),
-          `GeoSafe-FIS-assessment-${facts.id}.pdf`
+          `Basafe-score-${facts.id}.pdf`
         );
         document.body.appendChild(anchor);
         anchor.click();
@@ -3081,6 +3165,16 @@
     els["clear-selection"].addEventListener("click", clearSelection);
     els["open-controls"]?.addEventListener("click", () => setControlsOpen(true));
     els["close-controls"]?.addEventListener("click", () => setControlsOpen(false));
+    els["controls-backdrop"]?.addEventListener("click", () => setControlsOpen(false));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && document.body.classList.contains("controls-open")) {
+        event.preventDefault();
+        setControlsOpen(false);
+        return;
+      }
+      keepFocusInsideControls(event);
+    });
+    window.addEventListener("resize", syncControlsAccessibility);
     els["reset-map"]?.addEventListener("click", () => {
       clearSelection();
       if (state.map) state.map.fitBounds(BASEY_FALLBACK_BOUNDS);
@@ -3158,7 +3252,10 @@
 
     els["history-list"].addEventListener("click", (event) => {
       const button = event.target.closest("[data-assessment-id]");
-      if (button) openHistoryAssessment(button.dataset.assessmentId);
+      if (button) {
+        setControlsOpen(false, { restoreFocus: false });
+        openHistoryAssessment(button.dataset.assessmentId);
+      }
     });
 
     els["preview-report"].addEventListener("click", showReportPreview);
@@ -3174,6 +3271,8 @@
   async function start() {
     cacheElements();
     bindEvents();
+    syncControlsAccessibility();
+    syncMobileAssessmentAction();
     initMap();
     await Promise.all([loadSpatialData(), loadHistory()]);
     const routeAssessment = location.pathname.match(/^\/assessment\/([A-Za-z0-9_-]{20,128})\/?$/);
@@ -3183,6 +3282,6 @@
   start().catch((error) => {
     els["map-loading"].hidden = true;
     setApiStatus("offline", "Initialization incomplete");
-    showToast(`GeoSafe-FIS could not finish loading: ${error.message}`, "error");
+    showToast(`Basafe could not finish loading: ${error.message}`, "error");
   });
 })();

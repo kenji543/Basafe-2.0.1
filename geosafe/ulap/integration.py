@@ -1,4 +1,4 @@
-"""High-level ULAP facade used by the GeoSafe-FIS application service."""
+"""High-level ULAP facade used by the Basafe application service."""
 
 from __future__ import annotations
 
@@ -636,7 +636,7 @@ class UlapIntegration:
                     "validation_requirement"
                 ),
                 "notice": (
-                    "This normalized index is a GeoSafe-FIS model transformation, "
+                    "This normalized index is a Basafe model transformation, "
                     "not an official agency numerical rating."
                 ),
             },

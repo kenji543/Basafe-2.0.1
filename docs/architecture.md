@@ -1,8 +1,8 @@
-# GeoSafe-FIS Architecture
+# Basafe Architecture
 
 ## 1. Purpose and scope
 
-GeoSafe-FIS is a focused Web-GIS decision-support prototype for screening locations in Basey, Samar. It combines available flood, liquefaction, and ground-shaking information with verified municipal and barangay sources, historical incident context, and relevant Comprehensive Land Use Plan (CLUP) references. It then runs a documented fuzzy-inference model and explains the resulting vulnerability screening score.
+Basafe is a focused Web-GIS decision-support prototype for screening locations in Basey, Samar. It combines available flood, liquefaction, and ground-shaking information with verified municipal and barangay sources, historical incident context, and relevant Comprehensive Land Use Plan (CLUP) references. It then runs a documented fuzzy-inference model and explains the resulting vulnerability screening score.
 
 This document describes application package version `0.5.0` and demonstration model version `0.5.1-demo`.
 

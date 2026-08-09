@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "GeoSafe-FIS",
-  "short_name": "GeoSafe-FIS",
+  "name": "Basafe",
+  "short_name": "Basafe",
   "description": "Public Multi-Hazard Mapping and Preliminary Location Screening for Basey, Samar",
   "start_url": "/",
   "scope": "/",
@@ -16,7 +16,7 @@
     {"src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
   ],
   "shortcuts": [
-    {"name": "Assess a Location", "short_name": "Assess", "url": "/map", "icons": [{"src": "/icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "Score a Location", "short_name": "Score", "url": "/map", "icons": [{"src": "/icons/icon-192.png", "sizes": "192x192"}]},
     {"name": "Data Sources", "short_name": "Sources", "url": "/data-sources"}
   ]
 }

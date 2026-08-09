@@ -22,7 +22,7 @@
 
   installButtons.forEach((button) => button.addEventListener("click", async () => {
     if (!installEvent) {
-      alert("On iPhone or iPad, open the Share menu and choose 'Add to Home Screen'. New assessments still require current source access.");
+      alert("On iPhone or iPad, open the Share menu and choose 'Add to Home Screen'. New scoring requests still require current source access.");
       return;
     }
     installEvent.prompt();
@@ -42,7 +42,7 @@
       notice.id = "pwa-update-notice";
       notice.className = "offline-banner update-notice";
       notice.setAttribute("role", "status");
-      notice.innerHTML = '<span>A newer GeoSafe-FIS version is ready.</span><button type="button">Refresh</button>';
+      notice.innerHTML = '<span>A newer Basafe version is ready.</span><button type="button">Refresh</button>';
       notice.querySelector("button").addEventListener("click", () => window.location.reload());
       document.body.appendChild(notice);
     });
@@ -59,7 +59,7 @@
           });
         });
       } catch (error) {
-        console.warn("GeoSafe-FIS offline shell could not be registered.", error);
+        console.warn("Basafe offline shell could not be registered.", error);
       }
     });
   }

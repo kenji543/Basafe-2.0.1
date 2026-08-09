@@ -1,5 +1,5 @@
 """
-Vercel WSGI entry point for GeoSafe-FIS.
+Vercel WSGI entry point for Basafe.
 
 Vercel calls `app(environ, start_response)` for every request routed to
 this function.  Static files (everything under /web) are served directly
@@ -117,7 +117,7 @@ def app(environ, start_response):
             {
                 "error": {
                     "code": "internal_error",
-                    "message": "The GeoSafe-FIS API could not process the request.",
+                    "message": "The Basafe API could not process the request.",
                 }
             }
         ).encode()

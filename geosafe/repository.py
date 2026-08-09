@@ -1,4 +1,4 @@
-"""SQLite persistence for the focused GeoSafe-FIS workflow."""
+"""SQLite persistence for the focused Basafe workflow."""
 
 from __future__ import annotations
 
@@ -113,7 +113,7 @@ class Repository:
                 """,
                 (
                     model.version,
-                    configuration.get("model_name", "GeoSafe-FIS fuzzy model"),
+                    configuration.get("model_name", "Basafe fuzzy model"),
                     configuration.get("status"),
                     configuration["inference"]["defuzzification"],
                     configuration["output"]["universe"][0],

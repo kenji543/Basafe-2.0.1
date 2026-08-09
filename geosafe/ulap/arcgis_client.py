@@ -151,7 +151,7 @@ class ArcGISClient:
             url,
             headers={
                 "Accept": "application/json",
-                "User-Agent": "GeoSafe-FIS-ULAP/1.0",
+                "User-Agent": "Basafe-ULAP/1.0",
             },
             method="GET",
         )

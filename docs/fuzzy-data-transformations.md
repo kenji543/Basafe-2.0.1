@@ -2,12 +2,12 @@
 
 ## 1. Separation of source evidence and model output
 
-GeoSafe-FIS model `0.5.2-demo` keeps four layers of meaning separate:
+Basafe model `0.5.2-demo` keeps four layers of meaning separate:
 
 ```text
 official ArcGIS code and label
         â†“ exact, versioned demonstration lookup
-GeoSafe-FIS normalized input (0â€“100)
+Basafe normalized input (0â€“100)
         â†“ configured membership functions
 low / moderate / high membership degrees (0â€“1)
         â†“ configured weighted Mamdani rules
@@ -15,7 +15,7 @@ combined vulnerability screening score (1â€“100)
 ```
 
 Only the first layer is an official source classification. The normalized
-input, membership degrees, rule activations, and final score are GeoSafe-FIS
+input, membership degrees, rule activations, and final score are Basafe
 model products. The interface and report must never present them as MGB or
 PHIVOLCS ratings.
 
@@ -34,7 +34,7 @@ MGBPublic/Flood/MapServer/0
 field: fscode
 ```
 
-| Official `fscode` | Official label | GeoSafe-FIS `0â€“100` input |
+| Official `fscode` | Official label | Basafe `0â€“100` input |
 | --- | --- | ---: |
 | `01` | Low Susceptibility | 20 |
 | `02` | Moderate Susceptibility | 50 |
@@ -65,7 +65,7 @@ PHIVOLCSPublic/Liquefaction/MapServer/0
 field: lccode
 ```
 
-| Official `lccode` | Official label | GeoSafe-FIS `0â€“100` input | Transformation note |
+| Official `lccode` | Official label | Basafe `0â€“100` input | Transformation note |
 | --- | --- | ---: | --- |
 | `01` | Generally Susceptible | 50 | Broad/general class; not treated as Low Potential |
 | `02` | Low Potential | 25 | Exact-code lookup |
@@ -75,7 +75,7 @@ field: lccode
 | `06` | Moderately Susceptible | 55 | Exact-code lookup |
 | `07` | Highly Susceptible | 90 | Exact-code lookup |
 
-The domain combines differently worded classification families. GeoSafe-FIS
+The domain combines differently worded classification families. Basafe
 does not infer order from the code numbers and does not automatically equate
 â€œPotentialâ€ with â€œSusceptible.â€ Each row is explicit so specialists can revise
 or reject it independently.
@@ -104,7 +104,7 @@ classification mappings: 01/I -> 10, 02/II -> 20, ... 10/X -> 100
 ```
 
 The exact scenario values, source URLs, aggregation method, grid size, and 2014
-source date remain in each feature's metadata. The grid is a GeoSafe-FIS
+source date remain in each feature's metadata. The grid is a Basafe
 derivative, not a PHIVOLCS-issued vector layer. Its `limited` quality status
 and the demonstration transformation must remain visible until reviewed by
 qualified seismology and model specialists.
@@ -204,7 +204,7 @@ For each hazard, the result and PDF should show, when available:
 
 - source agency, service/layer URL, retrieval time, data date, and attribution;
 - raw source code and unchanged official label;
-- GeoSafe-FIS normalized value and model version;
+- Basafe normalized value and model version;
 - membership values;
 - rules using those memberships and their activation strengths;
 - cache and data-quality notices; and

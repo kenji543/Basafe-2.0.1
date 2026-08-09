@@ -68,7 +68,7 @@ class FrontendContractTests(unittest.TestCase):
 
     def test_landing_page_contains_required_public_sections(self) -> None:
         page = (WEB_ROOT / "index.html").read_text(encoding="utf-8")
-        self.assertGreaterEqual(page.count("Assess a Location"), 3)
+        self.assertGreaterEqual(page.count("Score a Location"), 3)
         for phrase in (
             "Understand the hazards affecting a location.",
             "How it works",
@@ -259,6 +259,9 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("/offline", worker)
         self.assertIn("url.pathname.startsWith(\"/api/\")", worker)
         self.assertIn("event.respondWith(fetch(request))", worker)
+        self.assertIn("shellCache.match(url.pathname)", worker)
+        info_script = (WEB_ROOT / "info.js").read_text(encoding="utf-8")
+        self.assertIn('pages[path] || pages["/offline"]', info_script)
 
 
 if __name__ == "__main__":

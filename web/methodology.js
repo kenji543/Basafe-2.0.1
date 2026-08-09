@@ -237,7 +237,7 @@
   }
 
   function emptyBlock(subject) {
-    return `<div class="empty-api-block"><strong>${escapeHtml(subject)} unavailable.</strong><br>The interface will not invent configuration values. Consult the version-controlled model and deployment records before interpreting assessments.</div>`;
+    return `<div class="empty-api-block"><strong>${escapeHtml(subject)} unavailable.</strong><br>The interface will not invent configuration values. Consult the version-controlled model and deployment records before interpreting scores.</div>`;
   }
 
   function membershipSummary(membership) {
@@ -509,7 +509,7 @@
     ].filter(([needle]) => !serviceHazards.some((value) => value.includes(needle))).map(([, label]) => label);
     els["ulap-method-status"].className = `callout ${status === "available" && !unavailable.length ? "important" : "caution"}`;
     els["ulap-method-status"].innerHTML = `
-      <strong>ULAP service health: ${escapeHtml(titleCase(status))}</strong>
+      <strong>Configured source-service health: ${escapeHtml(titleCase(status))}</strong>
       <p>${escapeHtml(textValue(firstDefined(value.message, value.summary), checkedAt ? `Last checked ${formatDateTime(checkedAt)}.` : "Validation time not reported."))}
       ${unavailable.length ? ` ${unavailable.length} registered service${unavailable.length === 1 ? " is" : "s are"} not fully available.` : ""}
       ${missingRequired.length ? ` No verified endpoint was returned for ${escapeHtml(missingRequired.join(", "))}.` : ""}
@@ -574,9 +574,9 @@
     );
 
     if (methodResult.status === "fulfilled" && ulapResult.status === "fulfilled") {
-      setStatus("online", "Model and ULAP records loaded");
+      setStatus("online", "Model and source records loaded");
     } else if (methodResult.status === "fulfilled" || ulapResult.status === "fulfilled") {
-      setStatus("online", "Partial live records loaded");
+      setStatus("online", "Partial source records loaded");
     } else {
       setStatus("offline", "Model service unavailable");
     }

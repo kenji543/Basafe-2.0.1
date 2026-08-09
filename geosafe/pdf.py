@@ -82,7 +82,7 @@ def assessment_report_lines(
     result = assessment.get("result", {})
     hazards = assessment.get("hazards", [])
     lines = [
-        "GeoSafe-FIS Assessment Report",
+        "Basafe Assessment Report",
         "Planning-oriented multi-hazard screening prototype",
         "",
         f"Assessment ID: {_safe_text(assessment.get('id'))}",
@@ -117,7 +117,7 @@ def assessment_report_lines(
                     f"label={_safe_text(hazard.get('official_label', hazard.get('classification')))}"
                 ),
                 (
-                    "  GeoSafe-FIS model transformation: normalized index="
+                    "  Basafe model transformation: normalized index="
                     f"{_safe_text(hazard.get('normalized_value'))} / 100; "
                     f"{_safe_text(transformation.get('notice'))}"
                 ),
@@ -268,7 +268,7 @@ def assessment_report_lines(
 
 def generate_pdf(
     lines: Iterable[str],
-    title: str = "GeoSafe-FIS Assessment",
+    title: str = "Basafe Assessment",
     assessment: Mapping[str, Any] | None = None,
 ) -> bytes:
     """Generate a branded, readable multi-page assessment report."""
@@ -282,7 +282,7 @@ def generate_pdf(
         pdfVersion=(1, 4),
     )
     pdf.setTitle(title)
-    pdf.setAuthor("GeoSafe-FIS research project")
+    pdf.setAuthor("Basafe research project")
     pdf.setSubject("Preliminary multi-hazard screening report")
 
     navy = HexColor("#073B4C")
@@ -323,7 +323,7 @@ def generate_pdf(
         pdf.circle(49, page_height - 38, 5, fill=1, stroke=0)
         pdf.setFillColor(HexColor("#FFFFFF"))
         pdf.setFont("Helvetica-Bold", 17 if page_number == 1 else 12)
-        pdf.drawString(76, page_height - 34, "GeoSafe-FIS Assessment Report")
+        pdf.drawString(76, page_height - 34, "Basafe Assessment Report")
         pdf.setFont("Helvetica", 8.5)
         pdf.setFillColor(HexColor("#CBE4DE"))
         pdf.drawString(
@@ -428,7 +428,7 @@ def generate_pdf(
     new_page()
     for index, raw_line in enumerate(report_lines):
         line_text = _safe_text(raw_line)
-        if index == 0 and line_text == "GeoSafe-FIS Assessment Report":
+        if index == 0 and line_text == "Basafe Assessment Report":
             continue
         if index == 1 and "screening prototype" in line_text:
             pdf.setFillColor(muted)

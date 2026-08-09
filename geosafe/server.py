@@ -1,4 +1,4 @@
-"""Development/deployment HTTP server for the unified GeoSafe-FIS interface."""
+"""Development/deployment HTTP server for the unified Basafe interface."""
 
 from __future__ import annotations
 
@@ -433,7 +433,7 @@ def create_application(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Run the unified GeoSafe-FIS Web-GIS prototype."
+        description="Run the unified Basafe Web-GIS prototype."
     )
     parser.add_argument(
         "--host", default=os.environ.get("GEOSAFE_HOST", "127.0.0.1")
@@ -458,7 +458,7 @@ def main() -> None:
     api, _, model = create_application(database_path=args.database)
     server = GeoSafeServer((args.host, args.port), api, Path(args.web_root))
     LOGGER.info(
-        "GeoSafe-FIS %s listening at http://%s:%s "
+        "Basafe %s listening at http://%s:%s "
         "(runtime data mode: %s; unified interface; no user roles)",
         model.version,
         args.host,
@@ -468,7 +468,7 @@ def main() -> None:
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        LOGGER.info("Stopping GeoSafe-FIS")
+        LOGGER.info("Stopping Basafe")
     finally:
         server.server_close()
 

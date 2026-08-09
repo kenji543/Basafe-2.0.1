@@ -1,8 +1,8 @@
-# GeoSafe-FIS Implementation Plan and Status
+# Basafe Implementation Plan and Status
 
 ## 1. Delivery objective
 
-GeoSafe-FIS is one unified, unauthenticated Web-GIS prototype. A user selects
+Basafe is one unified, unauthenticated Web-GIS prototype. A user selects
 a point in Basey, Samar; reviews live available flood, liquefaction, and
 ground-shaking evidence plus authorized historical-incident and CLUP context;
 receives an explainable fuzzy screening result only when every required hazard
