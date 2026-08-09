@@ -1,0 +1,91 @@
+{
+  "version": 2,
+  "name": "geosafe-fis",
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
+    },
+    {
+      "src": "web/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/",
+      "dest": "/web/index.html"
+    },
+    {
+      "src": "/map",
+      "dest": "/web/map.html"
+    },
+    {
+      "src": "/map/",
+      "dest": "/web/map.html"
+    },
+    {
+      "src": "/methodology",
+      "dest": "/web/methodology.html"
+    },
+    {
+      "src": "/methodology/",
+      "dest": "/web/methodology.html"
+    },
+    {
+      "src": "/data-sources",
+      "dest": "/web/info.html"
+    },
+    {
+      "src": "/data-sources/",
+      "dest": "/web/info.html"
+    },
+    {
+      "src": "/limitations",
+      "dest": "/web/info.html"
+    },
+    {
+      "src": "/limitations/",
+      "dest": "/web/info.html"
+    },
+    {
+      "src": "/about",
+      "dest": "/web/info.html"
+    },
+    {
+      "src": "/about/",
+      "dest": "/web/info.html"
+    },
+    {
+      "src": "/privacy",
+      "dest": "/web/info.html"
+    },
+    {
+      "src": "/privacy/",
+      "dest": "/web/info.html"
+    },
+    {
+      "src": "/assessment/([A-Za-z0-9_-]{20,128})",
+      "dest": "/web/map.html"
+    },
+    {
+      "src": "/(.*\\.(js|css|png|jpg|svg|webmanifest|ico|json|woff|woff2|ttf))",
+      "dest": "/web/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/web/info.html"
+    }
+  ],
+  "env": {
+    "GEOSAFE_DB_PATH": "/var/task/data/geosafe.db",
+    "GEOSAFE_CONFIG_PATH": "/var/task/config/fuzzy_model.json"
+  }
+}
