@@ -139,6 +139,8 @@ class FrontendContractTests(unittest.TestCase):
             "item.layer_url",
         ):
             self.assertIn(field, script)
+        self.assertNotIn("pending_verification", script)
+        self.assertNotIn("status-chip", script)
 
     def test_hidden_attribute_cannot_be_overridden_by_component_layout(self) -> None:
         for stylesheet in ("styles.css", "site.css"):

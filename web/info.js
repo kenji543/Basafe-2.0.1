@@ -65,12 +65,12 @@
   }
 
   async function renderSources() {
-    const page = { eyebrow: "Source transparency", title: "Data Sources", summary: "Review the organizations, layers, retrieval state, and limitations attached to the evidence used by Basafe." };
+    const page = { eyebrow: "Source transparency", title: "Data Sources", summary: "Review the organizations, layers, source details, and limitations attached to the evidence used by Basafe." };
     document.title = "Data Sources | Basafe";
     title.textContent = page.title;
     eyebrow.textContent = page.eyebrow;
     summary.textContent = page.summary;
-    sections.innerHTML = `<section class="info-card"><h2>Current configured services</h2><div id="source-live" class="source-live" role="status">Loading current source status…</div></section><section class="info-card"><h2>Supporting Basey data</h2><p>Municipal and barangay boundaries, permitted CLUP and CDRA references, appropriately prepared historical disaster records, and other approved local context may be displayed with provenance. Their inclusion does not imply LGU administration or endorsement.</p></section><section class="info-card"><h2>Source policy</h2><p>Basafe does not create fake service URLs, classifications, or agency endorsements. Missing, invalid, out-of-coverage, expired, or unreachable data remains explicit and can block a complete score.</p></section>`;
+    sections.innerHTML = `<section class="info-card"><h2>Current configured services</h2><div id="source-live" class="source-live" role="status">Loading source details…</div></section><section class="info-card"><h2>Supporting Basey data</h2><p>Municipal and barangay boundaries, permitted CLUP and CDRA references, appropriately prepared historical disaster records, and other approved local context may be displayed with provenance. Their inclusion does not imply LGU administration or endorsement.</p></section><section class="info-card"><h2>Source policy</h2><p>Basafe does not create fake service URLs, classifications, or agency endorsements. Missing, invalid, out-of-coverage, expired, or unreachable data remains explicit and can block a complete score.</p></section>`;
     const live = document.getElementById("source-live");
     try {
       const response = await fetch("/api/v1/ulap/services", { headers: { Accept: "application/json" } });
@@ -82,8 +82,6 @@
         const label = item.display_name || item.expected_layer_name || item.name || item.key || item.slug || "Configured source";
         const organization = item.agency || item.organization || item.provider || "Organization not reported";
         const validation = item.runtime_validation || {};
-        const status = validation.status || item.status || "pending_verification";
-        const available = ["available", "verified", "ok", "reachable"].includes(String(status).toLowerCase());
         const checked = validation.checked_at || item.checked_at || item.retrieved_at || "Not reported";
         const metadata = validation.metadata || {};
         const layer = item.expected_layer_name || metadata.name || item.layer_id || "Not reported";
@@ -91,10 +89,10 @@
         const retrieved = validation.retrieved_at || metadata.retrieved_at || checked;
         const description = metadata.description || item.attribution || item.verification?.reason || "No additional source description was reported.";
         const sourceUrl = item.layer_url || item.service_url || "";
-        return `<article><div class="source-card-head"><strong>${escapeHtml(label)}</strong><span class="status-chip ${available ? "available" : "unavailable"}">${escapeHtml(String(status).replaceAll("_", " "))}</span></div><dl class="source-details"><dt>Organization</dt><dd>${escapeHtml(organization)}</dd><dt>Layer</dt><dd>${escapeHtml(layer)}</dd><dt>Source date</dt><dd>${escapeHtml(sourceDate)}</dd><dt>Last retrieval/check</dt><dd>${escapeHtml(retrieved)}</dd>${sourceUrl ? `<dt>Service</dt><dd><a href="${escapeHtml(sourceUrl)}" rel="noreferrer">View configured ArcGIS layer</a></dd>` : ""}</dl><p class="source-description">${escapeHtml(description)}</p></article>`;
+        return `<article><div class="source-card-head"><strong>${escapeHtml(label)}</strong></div><dl class="source-details"><dt>Organization</dt><dd>${escapeHtml(organization)}</dd><dt>Layer</dt><dd>${escapeHtml(layer)}</dd><dt>Source date</dt><dd>${escapeHtml(sourceDate)}</dd><dt>Last retrieval/check</dt><dd>${escapeHtml(retrieved)}</dd>${sourceUrl ? `<dt>Service</dt><dd><a href="${escapeHtml(sourceUrl)}" rel="noreferrer">View configured ArcGIS layer</a></dd>` : ""}</dl><p class="source-description">${escapeHtml(description)}</p></article>`;
       }).join("") || "No source metadata is configured.";
     } catch (error) {
-      live.textContent = "Current source status could not be loaded. Reconnect and try again; unavailable data must not be interpreted as Low.";
+      live.textContent = "Source details could not be loaded. Reconnect and try again; unavailable data must not be interpreted as Low.";
     }
   }
 

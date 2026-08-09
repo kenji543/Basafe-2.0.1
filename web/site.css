@@ -1049,15 +1049,12 @@ summary:focus-visible,
 .info-card p, .info-card li { color: var(--muted); }
 .source-live { display: grid; gap: .75rem; }
 .source-live article { padding: 1rem; background: #f4f8f7; border: 1px solid var(--line); border-radius: .75rem; }
-.source-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+.source-card-head { display: flex; align-items: flex-start; gap: .75rem; }
 .source-card-head strong { color: var(--navy-deep); }
 .source-details { display: grid; grid-template-columns: minmax(8rem, .35fr) 1fr; gap: .35rem .8rem; margin: .9rem 0 0; font-size: .82rem; }
 .source-details dt { color: var(--muted); font-weight: 750; }
 .source-details dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
 .source-description { margin: .8rem 0 0; }
-.status-chip { display: inline-flex; flex: 0 0 auto; padding: .22rem .52rem; border-radius: 999px; font-size: .7rem; font-weight: 850; }
-.status-chip.available   { color: #1b6342; background: #def2e5; }
-.status-chip.unavailable { color: #795014; background: var(--amber-soft); }
 
 .update-notice {
   display: flex; position: fixed; z-index: 1000;
