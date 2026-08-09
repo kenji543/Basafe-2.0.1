@@ -1,19 +1,14 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "name": "geosafe-fis",
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb"
-      }
-    },
-    {
-      "src": "web/**",
-      "use": "@vercel/static"
+  "functions": {
+    "api/index.py": {
+      "includeFiles": "{config/**,db/schema.sql,data/geosafe.snapshot.db,geosafe/**}",
+      "excludeFiles": "{.codex-review/**,data/backups/**,data/geosafe.db,docs/**,scripts/**,tests/**,tmp/**}",
+      "maxDuration": 60
     }
-  ],
+  },
   "routes": [
     {
       "src": "/api/(.*)",
@@ -85,7 +80,8 @@
     }
   ],
   "env": {
-    "GEOSAFE_DB_PATH": "/var/task/data/geosafe.db",
-    "GEOSAFE_CONFIG_PATH": "/var/task/config/fuzzy_model.json"
+    "GEOSAFE_RUNTIME_DATA_MODE": "snapshot",
+    "GEOSAFE_LOG_LEVEL": "INFO",
+    "ULAP_LIVE_VALIDATION": "false"
   }
 }

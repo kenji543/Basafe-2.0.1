@@ -1,36 +1,20 @@
-# Keep the deployment bundle lean - exclude dev/test artifacts
+.codex-review/
+.git/
+.venv/
 __pycache__/
 *.py[cod]
-.coverage
-htmlcov/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.venv/
-venv/
-*.egg-info/
+*.log
 
-# Dev-only scripts
+# Development, test, and operator-only material
+docs/
+scripts/
+tests/
+tmp/
 check_coverage.py
 check_db_tables.py
 populate_crda.py
 populate_historical_incidents.py
 
-# Data files not needed at runtime
-data/backups/
-data/crda_*.csv
-
-# Source data for offline reference only
-docs/
-
-# Git and editor
-.git/
-.idea/
-.vscode/
-.DS_Store
-Thumbs.db
-tmp/
-*.log
-
-# Tests
-tests/
+# Never upload the writable local database, backups, or source extracts.
+data/*
+!data/geosafe.snapshot.db

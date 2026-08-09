@@ -7,6 +7,7 @@ import logging
 import mimetypes
 import os
 import re
+import shutil
 import sys
 import threading
 import time
@@ -375,15 +376,21 @@ def create_application(
     allow_test_fixtures: bool = False,
     runtime_data_mode: str | None = None,
 ) -> tuple[Api, Repository, FuzzyModel]:
+    configured_database = database_path or os.environ.get("GEOSAFE_DB_PATH")
+    resolved_database = Path(configured_database or PROJECT_ROOT / "data" / "geosafe.db")
+    if configured_database is None and not resolved_database.exists():
+        bundled_snapshot = PROJECT_ROOT / "data" / "geosafe.snapshot.db"
+        if bundled_snapshot.is_file():
+            resolved_database.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(bundled_snapshot, resolved_database)
+
     model = FuzzyModel.from_file(
         model_path
         or os.environ.get("GEOSAFE_MODEL_PATH")
         or PROJECT_ROOT / "config" / "fuzzy_model.json"
     )
     repository = Repository(
-        database_path
-        or os.environ.get("GEOSAFE_DB_PATH")
-        or PROJECT_ROOT / "data" / "geosafe.db",
+        resolved_database,
         schema_path
         or os.environ.get("GEOSAFE_SCHEMA_PATH")
         or PROJECT_ROOT / "db" / "schema.sql",

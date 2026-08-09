@@ -167,18 +167,9 @@ class GeoSafeService:
 
         features = data.get("features") or []
         if not features:
-            # Live API also has no polygon here — genuinely outside hazard zone
-            return {
-                "status": "available",
-                "availability_status": "available",
-                "classification": "None (Outside Hazard Zone)",
-                "official_label": "None",
-                "raw_code": "00",
-                "normalized_value": 0.0,
-                "normalized_fraction": 0.0,
-                "source_tag": "live_fallback_no_polygon",
-                "agency": self._LIVE_AGENCIES.get(hazard_type, "GeoRisk ULAP"),
-            }
+            # A zero-feature response is an absence of classification, not proof
+            # of low susceptibility. Preserve it as missing evidence.
+            return None
 
         attrs = features[0].get("attributes") or {}
         raw = attrs.get(field)
@@ -795,17 +786,11 @@ class GeoSafeService:
             # --- Hybrid fallback: try live GeoRisk API before giving up ---
             live = self._live_hazard_fallback(hazard_type, latitude, longitude)
             if live is not None:
-                source_tag = live.pop("source_tag", "live_fallback")
+                live.pop("source_tag", None)
                 fallback_agency = live.pop("agency", dataset.get("source_name") or "GeoRisk ULAP")
                 no_local_warning = (
                     "Local snapshot has no polygon at this point. "
                     "Score retrieved from live GeoRisk ArcGIS service."
-                    if source_tag == "live_fallback"
-                    else (
-                        "No hazard polygon covers this point in local OR live data. "
-                        "Assigned lowest susceptibility (0). "
-                        "This does not confirm safety — verify against official maps."
-                    )
                 )
                 quality_parts.append(no_local_warning)
                 return (
@@ -840,23 +825,23 @@ class GeoSafeService:
                     },
                     notices,
                 )
-            # Live fallback also failed — return sentinel 0
-            quality_parts.append(
-                "Local snapshot and live GeoRisk API both returned no polygon. "
-                "Assigned lowest susceptibility (0) — verify against official maps."
+            reason = (
+                "No feature in the local snapshot or live GeoRisk response covers "
+                "this point. Missing information is not low vulnerability."
             )
+            quality_parts.append(reason)
             return (
                 {
                     "hazard_type": hazard_type,
                     "hazard": hazard_type,
                     "name": dataset["name"],
-                    "status": "available",
-                    "availability_status": "available",
-                    "classification": "None (Outside Hazard Zone)",
-                    "official_label": "None",
-                    "raw_code": "00",
-                    "normalized_value": 0.0,
-                    "normalized_fraction": 0.0,
+                    "status": "no_intersection",
+                    "availability_status": "missing",
+                    "classification": None,
+                    "official_label": None,
+                    "raw_code": None,
+                    "normalized_value": None,
+                    "normalized_fraction": None,
                     "source": source,
                     "normalization": normalization,
                     "source_name": dataset["source_name"],
@@ -868,7 +853,7 @@ class GeoSafeService:
                     "source_url": source_url,
                     "retrieved_at": retrieved_at,
                     "spatial_reference": 4326,
-                    "warnings": [quality_parts[-1]],
+                    "warnings": [reason],
                     "quality_notice": "; ".join(quality_parts) or None,
                 },
                 notices,

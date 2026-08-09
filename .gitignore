@@ -2,6 +2,7 @@ __pycache__/
 *.py[cod]
 .coverage
 htmlcov/
+build/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -11,6 +12,8 @@ venv/
 
 # Generated runtime state and import diagnostics
 data/backups/
+data/geosafe.db
+data/geosafe.db-*
 *.import-errors.jsonl
 *.log
 
@@ -26,3 +29,5 @@ reports/
 .vscode/
 .DS_Store
 Thumbs.db
+
+.vercel

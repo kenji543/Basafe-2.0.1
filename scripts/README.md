@@ -4,6 +4,20 @@ These command-line tools keep dataset preparation outside the Web-GIS
 interface. They create no accounts, roles, approval queues, or administrative
 pages.
 
+## Build the deployment snapshot
+
+Create the database bundled with clean clones and Vercel deployments without
+publishing device-local assessment history:
+
+```powershell
+python scripts/build_deployment_snapshot.py --force
+```
+
+The command uses `data/geosafe.db` as input and writes
+`data/geosafe.snapshot.db`. It removes assessments and all dependent inputs,
+memberships, rule activations, results, and report records, then runs SQLite
+integrity validation. The source database is never modified.
+
 ## Synchronize official-service snapshots
 
 Ordinary map and assessment requests use local snapshots and do not contact

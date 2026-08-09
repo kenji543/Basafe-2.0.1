@@ -38,6 +38,12 @@ python -m pip install -e .
 python -m geosafe.server
 ```
 
+A clean clone contains `data/geosafe.snapshot.db`, a sanitized, read-only
+developer snapshot with no assessment or report history. On the first local
+run, the server copies it to the ignored writable file `data/geosafe.db`.
+Operators can then refresh that writable database with the synchronization and
+import commands below without changing the published snapshot.
+
 Open <http://127.0.0.1:8000>. The browser loads Leaflet, OpenStreetMap street
 tiles, and optional Esri World Imagery/World Topographic basemaps from their
 public services with visible attribution. Basemaps are visual context only and
@@ -68,6 +74,31 @@ Region VIII scenario KMZs and is labelled limited-quality derived data.
 The server initializes the approved schema and loads the versioned fuzzy and
 ULAP registries. Configure `ULAP_LIVE_VALIDATION=true` only when deliberate
 startup metadata validation is wanted.
+
+## Deploy to Vercel
+
+The repository includes a Python WSGI function and static routing configuration
+for Vercel. The function copies `data/geosafe.snapshot.db` into its writable
+`/tmp` directory before initializing SQLite. This supports the public map and
+assessment workflow, but Vercel instance-local assessment records are
+ephemeral and must not be treated as durable storage.
+
+Rebuild the privacy-safe deployment snapshot after updating local source data:
+
+```powershell
+python scripts/build_deployment_snapshot.py --force
+```
+
+Then validate and deploy:
+
+```powershell
+python -m unittest discover -s tests -v
+vercel build
+vercel --prod
+```
+
+For durable server-side assessment history, replace the SQLite write path with
+a managed relational database before operational deployment.
 
 ## Test
 

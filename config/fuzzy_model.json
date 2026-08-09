@@ -1,5 +1,5 @@
 {
-  "model_version": "0.5.3-demo",
+  "model_version": "0.5.4-demo",
   "model_name": "GeoSafe-FIS multi-hazard vulnerability screening model",
   "status": "DEMONSTRATION MODEL â€” NOT YET VALIDATED FOR OFFICIAL PLANNING USE",
   "effective_date": "2026-07-23",
@@ -32,11 +32,6 @@
         ],
         "method": "Exact code lookup from the verified live domain; the official label is preserved separately.",
         "classification_mappings": {
-          "00": {
-            "official_label": "None",
-            "normalized_value": 0,
-            "note": "Sentinel: point lies outside any mapped flood hazard polygon. Treated as lowest susceptibility for screening purposes only."
-          },
           "01": {
             "official_label": "Low Susceptibility",
             "normalized_value": 20
@@ -54,7 +49,7 @@
             "normalized_value": 95
           }
         },
-        "missing_value_policy": "A point outside all mapped flood polygons is assigned code 00 (normalized_value 0). A missing field or unknown code still blocks the assessment.",
+        "missing_value_policy": "An absent feature, missing field, changed schema, or unknown code remains missing and makes the assessment incomplete.",
         "validation_requirement": "DEMONSTRATION TRANSFORMATION â€” the four model index values require review and approval by qualified domain experts before official planning use."
       },
       "memberships": [
@@ -109,11 +104,6 @@
         ],
         "method": "Exact code lookup configured independently for every official category; no ordinal sequence is inferred from the code numbers.",
         "classification_mappings": {
-          "00": {
-            "official_label": "None",
-            "normalized_value": 0,
-            "note": "Sentinel: point lies outside any mapped liquefaction hazard polygon. Treated as lowest susceptibility for screening purposes only."
-          },
           "01": {
             "official_label": "Generally Susceptible",
             "normalized_value": 50,
@@ -144,7 +134,7 @@
             "normalized_value": 90
           }
         },
-        "missing_value_policy": "A point outside all mapped liquefaction polygons is assigned code 00 (normalized_value 0). A missing field or unknown code still blocks the assessment.",
+        "missing_value_policy": "An absent feature, missing field, changed schema, or unknown code remains missing and makes the assessment incomplete.",
         "validation_requirement": "DEMONSTRATION TRANSFORMATION â€” these non-equivalent source categories and all seven model index values require PHIVOLCS/domain-expert validation before official planning use."
       },
       "memberships": [

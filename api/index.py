@@ -9,11 +9,14 @@ sees /api/* requests.
 from __future__ import annotations
 
 import json
+import logging
 import os
+import shutil
 import sys
-from io import BytesIO
+import tempfile
+import threading
 from pathlib import Path
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs
 
 # ---------------------------------------------------------------------------
 # Bootstrap – make the project root importable
@@ -26,6 +29,42 @@ if str(PROJECT_ROOT) not in sys.path:
 # Lazy-initialise the GeoSafe service (cold-start once per instance)
 # ---------------------------------------------------------------------------
 _api = None
+_api_lock = threading.Lock()
+LOGGER = logging.getLogger(__name__)
+
+
+def _runtime_database_path() -> Path:
+    """Return writable, instance-local storage for the bundled snapshot."""
+
+    configured_runtime = os.environ.get("GEOSAFE_RUNTIME_DIR")
+    if configured_runtime:
+        runtime_root = Path(configured_runtime)
+    elif os.environ.get("VERCEL"):
+        runtime_root = Path("/tmp")
+    else:
+        runtime_root = Path(tempfile.gettempdir())
+    return runtime_root / "geosafe-fis" / "geosafe.db"
+
+
+def _prepare_runtime_database() -> Path:
+    """Copy the sanitized, read-only deployment snapshot into writable storage."""
+
+    source = PROJECT_ROOT / "data" / "geosafe.snapshot.db"
+    if not source.is_file():
+        raise RuntimeError(
+            "The sanitized deployment snapshot is missing: "
+            "data/geosafe.snapshot.db"
+        )
+
+    destination = _runtime_database_path()
+    if destination.exists():
+        return destination
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_suffix(".copying")
+    shutil.copy2(source, temporary)
+    temporary.replace(destination)
+    return destination
 
 
 def _get_api():
@@ -33,27 +72,21 @@ def _get_api():
     if _api is not None:
         return _api
 
-    from geosafe.api import Api
-    from geosafe.fuzzy import FuzzyModel
-    from geosafe.repository import Repository
-    from geosafe.service import GeoSafeService
-    from geosafe.ulap.integration import UlapIntegration
+    with _api_lock:
+        if _api is not None:
+            return _api
 
-    db_path = os.environ.get(
-        "GEOSAFE_DB_PATH",
-        str(PROJECT_ROOT / "data" / "geosafe.db"),
-    )
-    config_path = os.environ.get(
-        "GEOSAFE_CONFIG_PATH",
-        str(PROJECT_ROOT / "config" / "fuzzy_model.json"),
-    )
+        from geosafe.server import create_application
 
-    repo = Repository(db_path)
-    model = FuzzyModel(config_path)
-    ulap = UlapIntegration()
-    service = GeoSafeService(repo, model, ulap)
-    _api = Api(service)
-    return _api
+        runtime_database = _prepare_runtime_database()
+        _api, _, _ = create_application(
+            database_path=runtime_database,
+            model_path=PROJECT_ROOT / "config" / "fuzzy_model.json",
+            schema_path=PROJECT_ROOT / "db" / "schema.sql",
+            enable_ulap=True,
+            runtime_data_mode="snapshot",
+        )
+        return _api
 
 
 # ---------------------------------------------------------------------------
@@ -78,9 +111,15 @@ def app(environ, start_response):
     try:
         api = _get_api()
         response = api.dispatch(method, path, query, body)
-    except Exception as exc:
+    except Exception:
+        LOGGER.exception("Unhandled Vercel function error")
         payload = json.dumps(
-            {"error": {"code": "internal_error", "message": str(exc)}}
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "The GeoSafe-FIS API could not process the request.",
+                }
+            }
         ).encode()
         start_response(
             "500 Internal Server Error",
