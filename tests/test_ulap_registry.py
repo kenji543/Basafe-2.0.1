@@ -36,6 +36,19 @@ class ServiceRegistryTests(unittest.TestCase):
         )
         self.assertEqual(ground.verification["status"], "verified")
 
+        landslide = registry.get("rain_induced_landslide")
+        self.assertFalse(landslide.required)
+        self.assertEqual(landslide.classification_field, "rilscode")
+        self.assertEqual(
+            landslide.layer_url,
+            "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/"
+            "MGBPublic/RainInducedLandslide/MapServer/0",
+        )
+        self.assertTrue(landslide.verification["view_only"])
+        self.assertEqual(
+            landslide.expected_domain["05"], "Very High Susceptibility"
+        )
+
     def test_supplied_file_provenance_is_explicitly_non_operational(self) -> None:
         audit = ServiceRegistry(REGISTRY, environment={}).source_manifest_audit
         self.assertEqual(audit["feature_count"], 58)

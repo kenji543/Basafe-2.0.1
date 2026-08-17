@@ -145,6 +145,7 @@ def app(environ, start_response):
         422: "422 Unprocessable Entity",
         429: "429 Too Many Requests",
         500: "500 Internal Server Error",
+        503: "503 Service Unavailable",
     }
     status_line = status_map.get(response.status, f"{response.status} Unknown")
 

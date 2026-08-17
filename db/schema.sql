@@ -274,3 +274,79 @@ CREATE TABLE IF NOT EXISTS generated_reports (
 
 CREATE INDEX IF NOT EXISTS idx_generated_reports_assessment
     ON generated_reports(assessment_id);
+
+CREATE TABLE IF NOT EXISTS routing_study_areas (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    version TEXT NOT NULL,
+    geometry_geojson TEXT NOT NULL,
+    source_name TEXT NOT NULL,
+    source_date TEXT,
+    source_metadata_json TEXT NOT NULL DEFAULT '{}',
+    is_official INTEGER NOT NULL DEFAULT 0 CHECK (is_official IN (0, 1)),
+    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_routing_study_areas_active
+    ON routing_study_areas(is_active, is_official);
+
+CREATE TABLE IF NOT EXISTS evacuation_centers (
+    id INTEGER PRIMARY KEY,
+    external_id TEXT,
+    name TEXT NOT NULL,
+    latitude REAL NOT NULL CHECK (latitude BETWEEN -90 AND 90),
+    longitude REAL NOT NULL CHECK (longitude BETWEEN -180 AND 180),
+    barangay TEXT,
+    designation TEXT NOT NULL,
+    source_name TEXT NOT NULL,
+    source_date TEXT,
+    source_metadata_json TEXT NOT NULL DEFAULT '{}',
+    dataset_version TEXT NOT NULL,
+    is_official INTEGER NOT NULL DEFAULT 0 CHECK (is_official IN (0, 1)),
+    active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+    capacity INTEGER CHECK (capacity IS NULL OR capacity >= 0),
+    notes TEXT,
+    hazard_screening_status TEXT,
+    hazard_score REAL CHECK (hazard_score IS NULL OR (hazard_score >= 0 AND hazard_score <= 100)),
+    hazard_category TEXT,
+    hazard_model_version TEXT,
+    hazard_screened_at TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(external_id, dataset_version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_evacuation_centers_active
+    ON evacuation_centers(active);
+
+CREATE TABLE IF NOT EXISTS searchable_locations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    result_type TEXT NOT NULL
+        CHECK (result_type IN ('street', 'poi', 'place')),
+    name TEXT NOT NULL,
+    normalized_name TEXT NOT NULL,
+    alternate_name TEXT,
+    normalized_alternate_name TEXT,
+    barangay TEXT,
+    latitude REAL NOT NULL CHECK (latitude BETWEEN -90 AND 90),
+    longitude REAL NOT NULL CHECK (longitude BETWEEN -180 AND 180),
+    geometry_geojson TEXT,
+    category TEXT,
+    subtype TEXT,
+    source_name TEXT NOT NULL,
+    snapshot_date TEXT NOT NULL,
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    study_area_version TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(source_id, result_type, study_area_version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_searchable_locations_name
+    ON searchable_locations(active, normalized_name);
+CREATE INDEX IF NOT EXISTS idx_searchable_locations_alternate
+    ON searchable_locations(active, normalized_alternate_name);
+CREATE INDEX IF NOT EXISTS idx_searchable_locations_type
+    ON searchable_locations(active, result_type);

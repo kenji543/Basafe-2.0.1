@@ -12,6 +12,44 @@
 
 There are no authentication, account, user, role, permission, staff, administration, approval, audit, upload, or model-editing routes. A future shared environment-variable password, if separately approved, would protect the whole application and is not implemented.
 
+## Evacuation routing
+
+Routing is stateless and limited to a separately loaded Basey town-proper study
+area. It uses a frozen local pedestrian graph; a request never downloads road
+data or calls an external routing API.
+
+### `GET /api/v1/routing/status`
+
+Reports whether NetworkX, the verified routing area, local graph, and designated
+center dataset are available. Missing data returns a normal status payload so
+the map can explain the dependency without fabricating capability.
+
+### `GET /api/v1/evacuation-centers`
+
+Returns active researcher/LGU-supplied designated centers and provenance. It
+does not infer or create centers.
+
+### `POST /api/v1/route`
+
+```json
+{
+  "latitude": 11.0,
+  "longitude": 125.0,
+  "mode": "shortest",
+  "scenario": "multi_hazard",
+  "include_comparison": false
+}
+```
+
+The public endpoint exposes one standard `shortest` walking route to the nearest
+reachable designated center. The response includes the selected destination,
+route GeoJSON, approximate walking time, route metrics, warnings, disclaimer,
+research metrics, and reproducibility provenance. The hazard-aware comparison
+algorithm remains internal research code and is not a public route mode.
+
+See [routing.md](routing.md) for the algorithm, preprocessing, errors, and data
+dependencies.
+
 ## 2. Common fields and errors
 
 ### 2.1 Provenance and quality
@@ -233,19 +271,24 @@ geometry.
 The ground-shaking response is an empty FeatureCollection with
 `status: "unavailable"` until a verified endpoint is configured.
 
-### `GET /location/search?q={text}&limit={n}`
+### `GET /location/search?q={text}&limit={n}&type={type}`
 
-Searches live PSA Basey barangay names/PSGC codes and WGS 84 coordinate pairs
-written as `latitude, longitude`. Search text must contain at least two
-characters. The limit defaults to 10 and must be 1Ã¢â‚¬â€œ50.
+Searches locally synchronized OSM streets and allowlisted POIs, verified
+designated evacuation centers when loaded, Basey barangays, and WGS 84
+coordinate pairs written as `latitude, longitude`. Search text must contain at
+least two characters. The limit defaults to 10 and must be 1–50. Optional
+`type` is `street`, `poi`, `place`, `evacuation_center`, `barangay`, or
+`coordinate`. `/api/search` is a compatibility alias.
 
-The prototype does not call a third-party geocoder. The response states that its scope is the loaded Basey data:
+The endpoint ranks exact, prefix, strong partial, then alternative-name
+matches. It reads SQLite only and does not call Nominatim, Overpass, OSMnx, or
+another geocoder at runtime:
 
 ```json
 {
   "query": "example",
   "items": [],
-  "scope": "Live PSA ULAP Basey barangays and WGS84 coordinate pairs",
+  "scope": "Local OSM streets/places, designated centers, Basey barangays, and WGS84 coordinates",
   "notice": "..."
 }
 ```
@@ -505,4 +548,3 @@ The current standard-library `unittest` suite verifies the core contract:
 9. Prohibited identity and administration endpoints are absent.
 
 Static frontend contract tests additionally verify that only approved pages and API groups are referenced. They are not a browser-automation suite; interactive map behavior still requires the manual acceptance checks listed in [acceptance-criteria.md](acceptance-criteria.md).
-

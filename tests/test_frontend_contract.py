@@ -163,7 +163,10 @@ class FrontendContractTests(unittest.TestCase):
         self.assertGreaterEqual(script.count('on("click", selectLocationFromMapEvent)'), 4)
         self.assertIn("Barangay matching is optional", page)
         self.assertIn('class="map-search-overlay"', page)
-        self.assertIn('placeholder="Search anywhere in Basey"', page)
+        self.assertIn('placeholder="Street, place, barangay, or coordinates"', page)
+        self.assertIn('aria-autocomplete="list"', page)
+        self.assertIn("highlightSearchResult", script)
+        self.assertIn("Street located. Select a specific point", script)
         self.assertNotIn('class="panel source-health-panel" open', page)
         self.assertNotIn('class="panel layers-panel" open', page)
         self.assertIn("World_Imagery/MapServer/tile/{z}/{y}/{x}", script)
@@ -177,6 +180,10 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("function arcGisExportOverlay", script)
         self.assertIn('source.hostname !== "ulap-hazards.georisk.gov.ph"', script)
         self.assertIn('displayMode = "arcgis_export"', script)
+        self.assertIn('key: "rain_induced_landslide"', script)
+        self.assertIn('label: "Rain-induced landslide"', script)
+        self.assertIn("Optional map context · not used in scoring", script)
+        self.assertIn('renderMode === "arcgis_export"', script)
 
     def test_disclaimer_and_missing_data_rule_are_visible(self) -> None:
         page_text = " ".join(
@@ -203,6 +210,92 @@ class FrontendContractTests(unittest.TestCase):
             page_text,
             re.compile(r"(?:demonstration|unvalidated).{0,30}model", re.IGNORECASE),
         )
+
+    def test_map_workflow_uses_progressive_disclosure_and_accessible_tabs(self) -> None:
+        page = (WEB_ROOT / "map.html").read_text(encoding="utf-8")
+        script = (WEB_ROOT / "app.js").read_text(encoding="utf-8")
+        styles = (WEB_ROOT / "styles.css").read_text(encoding="utf-8")
+        pwa_script = (WEB_ROOT / "pwa.js").read_text(encoding="utf-8")
+
+        for element_id in (
+            "mobile-selection-summary",
+            "results-empty-title",
+            "results-empty-copy",
+            "results-empty-steps",
+            "empty-primary-action",
+        ):
+            self.assertIn(f'id="{element_id}"', page)
+
+        self.assertIn("function syncSelectionExperience", script)
+        self.assertIn("function buildInterpretationSummary", script)
+        self.assertIn("Main mapped condition in this score", script)
+        self.assertIn('<details class="hazard-details">', script)
+        self.assertIn('<details class="layer-service-details">', script)
+        self.assertIn('event.key === "ArrowRight"', script)
+        self.assertIn('event.key === "ArrowLeft"', script)
+        self.assertIn('event.key === "Home"', script)
+        self.assertIn('event.key === "End"', script)
+        self.assertIn('tab.setAttribute("tabindex"', script)
+        self.assertIn('Unavailable: ${escapeHtml(missing.join(", "))}', script)
+
+        hazard_builder = script.split("function buildHazards", 1)[1].split(
+            "function buildMemberships", 1
+        )[0]
+        self.assertLess(
+            hazard_builder.index('<details class="hazard-details">'),
+            hazard_builder.index('<div class="model-transform-value">'),
+        )
+
+        self.assertIn("body.has-selection .results-panel", styles)
+        self.assertIn("body.has-assessment .results-panel", styles)
+        self.assertIn(".mobile-selection-summary", styles)
+        self.assertIn("data-update-later", pwa_script)
+        self.assertIn("notice.remove()", pwa_script)
+
+    def test_map_exposes_one_clear_town_proper_evacuation_route(self) -> None:
+        page = (WEB_ROOT / "map.html").read_text(encoding="utf-8")
+        script = (WEB_ROOT / "app.js").read_text(encoding="utf-8")
+        for element_id in (
+            "routing-panel",
+            "routing-status",
+            "find-evacuation-route",
+            "map-evacuation-route",
+            "routing-result",
+            "route-layer-controls",
+            "toggle-evacuation-route",
+            "clear-route",
+            "map-route-summary",
+            "map-route-destination",
+            "map-route-distance",
+            "map-route-clear",
+        ):
+            self.assertIn(f'id="{element_id}"', page)
+        self.assertIn('id="clear-selection" class="map-tool" type="button" title="Clear selected point" disabled hidden', page)
+        self.assertIn('id="reset-map" class="map-tool" type="button" title="Reset map and selection" hidden', page)
+        for phrase in (
+            "Find evacuation route",
+            "Evacuation route",
+            "Nearest reachable destination",
+            "Designated Evacuation Center",
+            "Route highlighted on the map",
+        ):
+            self.assertIn(phrase, page + script)
+        for removed in (
+            'id="routing-scenario"',
+            'id="find-lower-hazard-route"',
+            'id="find-shortest-route"',
+            'id="toggle-lower-route"',
+            "Lower-Hazard Route",
+            "Route comparison",
+            "Mapped exposure",
+        ):
+            self.assertNotIn(removed, page + script)
+        self.assertIn('apiFetch("/route"', script)
+        self.assertIn('optionalFetch("/routing/status")', script)
+        self.assertIn('pane: "routePane"', script)
+        routing_text = (page + script).casefold()
+        for prohibited in ("safest route", "guaranteed safe route", "safe area"):
+            self.assertNotIn(prohibited, routing_text)
 
     def test_fallback_and_methodology_use_canonical_disclaimer(self) -> None:
         disclaimer = json.loads(

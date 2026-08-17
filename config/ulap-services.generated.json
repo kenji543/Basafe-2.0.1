@@ -192,6 +192,64 @@
       }
     },
     {
+      "key": "rain_induced_landslide",
+      "dataset_type": "hazard",
+      "required": false,
+      "configured": true,
+      "agency": "Mines and Geosciences Bureau",
+      "attribution": "Mines and Geosciences Bureau through the GeoRisk Philippines ULAP service. READY Project hazard data dated 2012.",
+      "base_environment_variable": "ULAP_HAZARDS_BASE_URL",
+      "default_base_url": "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services",
+      "relative_service_path": "MGBPublic/RainInducedLandslide/MapServer",
+      "service_url": "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/RainInducedLandslide/MapServer",
+      "layer_url": "https://ulap-hazards.georisk.gov.ph/arcgis/rest/services/MGBPublic/RainInducedLandslide/MapServer/0",
+      "layer_id": 0,
+      "expected_layer_name": "Rain-induced landslide",
+      "expected_geometry_type": "esriGeometryPolygon",
+      "classification_field": "rilscode",
+      "expected_spatial_reference": 4326,
+      "expected_domain": {
+        "01": "Debris Flow/Possible Accumulation Zone",
+        "02": "Low Susceptibility",
+        "03": "Moderate Susceptibility",
+        "04": "High Susceptibility",
+        "05": "Very High Susceptibility"
+      },
+      "preserve_fields": [
+        "rilscode",
+        "lndslidesu",
+        "gthcode",
+        "created_date",
+        "last_edited_date",
+        "globalid"
+      ],
+      "required_capabilities": [
+        "Map",
+        "Query"
+      ],
+      "verification": {
+        "status": "verified",
+        "verified_on": "2026-08-18",
+        "method": "Live ArcGIS service and layer metadata inspection using f=pjson, followed by a Basey export-map request",
+        "current_version": 11.0,
+        "geometry_type": "esriGeometryPolygon",
+        "spatial_reference": 4326,
+        "max_record_count": 2000,
+        "classification_field_found": true,
+        "domain_matches_expected": true,
+        "source_data_date": "2012",
+        "map_render_mode": "arcgis_export",
+        "view_only": true,
+        "legend_colors": {
+          "01": [0, 0, 0, 255],
+          "02": [255, 255, 0, 255],
+          "03": [0, 128, 0, 255],
+          "04": [255, 0, 0, 255],
+          "05": [144, 36, 0, 255]
+        }
+      }
+    },
+    {
       "key": "ground_shaking",
       "dataset_type": "hazard",
       "required": true,

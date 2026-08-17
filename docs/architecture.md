@@ -19,6 +19,7 @@ Every feature must directly support at least one of the following:
 - data-quality communication;
 - planning-oriented recommendations; or
 - report generation.
+- town-proper pedestrian evacuation-route comparison using frozen local data.
 
 Anything that fails this scope gate is not part of the application.
 
@@ -49,6 +50,8 @@ The target implementation intentionally uses a small number of components:
 | SQLite database | Approved spatial records, provenance, fuzzy configuration records where seeded, assessments, explanations, and generated-report metadata |
 | Version-controlled fuzzy configuration | `config/fuzzy_model.json`: model variables, membership functions, rules, weights, outputs, thresholds, defuzzification method, version, and validation notes |
 | Command-line import utilities | Validate, transform, and load deployment datasets while recording provenance and errors |
+| Local routing service | Load a frozen town-proper walking graph, compare shortest and mapped-hazard-aware A* routes to every reachable designated center, and return stateless GeoJSON plus reproducibility metadata |
+| Local OSM search service | Rank normalized street/POI records stored from the same frozen walking-network synchronization and return inspectable GeoJSON without runtime geocoding |
 | PDF report renderer | Produce a repeatable assessment document containing the result, explanation, sources, quality notices, limitations, and disclaimer |
 
 The browser is a client of the JSON API. It does not call ULAP directly, contain authoritative hazard values, expose an ArcGIS token, or independently calculate the final score. The API validates live source metadata, resolves the selected point, obtains available source records, applies the exact configured model only when all required inputs are valid, and persists enough detail to reproduce the explanation.
@@ -152,6 +155,9 @@ Only tables directly required by approved functions are allowed:
 | `assessment_rule_activations` | Rule snapshot, unweighted firing strength, weight, and effective activation |
 | `assessment_results` | Score/category when complete, completeness reasons, recommendations, and disclaimer version |
 | `generated_reports` | Assessment link, PDF checksum, generation time, and the assessment snapshot used for that generation |
+| `routing_study_areas` | Versioned town-proper routing polygon and source authority metadata |
+| `searchable_locations` | Normalized OSM street/POI search records, geometry, snapshot date, and provenance |
+| `evacuation_centers` | Researcher/LGU-supplied designated centers, coordinates, designation, provenance, version, and optional capacity |
 
 Foreign keys are enabled. Imports and assessments use transactions. Provenance and model snapshots prevent a later data or configuration update from silently changing an existing assessment explanation.
 
@@ -215,7 +221,9 @@ Report preview and PDF content are contract-tested so material warnings cannot d
 - Inputs are validated and SQL statements are parameterized.
 - Outbound ArcGIS calls use HTTPS and an explicit two-host allowlist; redirects are revalidated.
 - Optional ArcGIS credentials are read from `ULAP_TOKEN` on the server and removed from logs, cache keys, response URLs, and reports.
-- Location search is local to loaded Basey barangays/PSGC codes and coordinate pairs; the current prototype does not call an external geocoder.
+- Location search uses the local OSM street/POI index, designated centers,
+  loaded Basey barangays/PSGC codes, and coordinate pairs. It does not call an
+  external geocoder or Overpass at runtime.
 - Report filenames are server controlled and cannot be supplied as arbitrary filesystem paths.
 - Import utilities, not the browser, are the trusted data-management boundary.
 

@@ -195,3 +195,30 @@ partial import. Fatal configuration or dataset errors exit with code `1`.
 Missing required hazard data must remain missing. Import scripts never convert
 absence into a low classification; assessment logic must mark the result
 incomplete.
+
+## Prepare local evacuation routing data
+
+Routing is intentionally an operator-managed snapshot workflow. See
+[`docs/routing.md`](../docs/routing.md) for the verified polygon and center
+imports, explicit OSMnx pedestrian-network synchronization, local hazard/FIS
+enrichment, runtime isolation contract, and research-metric export.
+
+`build_town_proper_boundary.py` reproducibly composes the routing study area
+from the loaded official PSA polygons for Mercado, Palaypay, Baybay, Sulod,
+Loyo, Buscada, and Lawa-an. It preserves component provenance and labels the
+researcher-defined grouping as non-official.
+
+`sync_osm_network.py` is the single explicit OSM synchronization path for both
+search and routing. It freezes GraphML, exports inspectable road GeoJSON,
+records quality metadata, and atomically activates normalized street/POI rows
+in SQLite. Normal runtime code does not call OSM services.
+
+`normalize_evacuation_centers.py` converts the supplied DMS coordinates to
+EPSG:4326, groups repeated point rows into one facility record, requires every
+representative point to fall inside the active study area, and assigns the
+loaded PSA polygon match as the normalized barangay. The supplied 17 rows
+normalize to nine facilities. The researcher confirmed that the photographed
+inventory came directly from the Basey MDRRMO, so the scoped extract is imported
+with `--data-classification official`. The source photograph should still be
+archived; the import does not infer its publication date, facility capacity, or
+current emergency activation.

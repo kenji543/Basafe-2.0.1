@@ -42,8 +42,9 @@
       notice.id = "pwa-update-notice";
       notice.className = "offline-banner update-notice";
       notice.setAttribute("role", "status");
-      notice.innerHTML = '<span>A newer Basafe version is ready.</span><button type="button">Refresh</button>';
-      notice.querySelector("button").addEventListener("click", () => window.location.reload());
+      notice.innerHTML = '<span>Basafe update ready.</span><div class="update-actions"><button type="button" data-update-refresh>Refresh</button><button type="button" class="update-later" data-update-later>Later</button></div>';
+      notice.querySelector("[data-update-refresh]").addEventListener("click", () => window.location.reload());
+      notice.querySelector("[data-update-later]").addEventListener("click", () => notice.remove());
       document.body.appendChild(notice);
     });
 

@@ -44,6 +44,15 @@
     { key: "liquefaction", label: "Liquefaction", color: "#d9903d" },
     { key: "ground_shaking", label: "Ground shaking", color: "#b74b53" }
   ];
+  const MAP_HAZARDS = [
+    ...REQUIRED_HAZARDS,
+    {
+      key: "rain_induced_landslide",
+      label: "Rain-induced landslide",
+      color: "#8f3d24",
+      viewOnly: true
+    }
+  ];
   const DISCLAIMER = "This report is a preliminary multi-hazard screening output based on selected available data. It does not certify that a location is safe or unsafe and does not replace official hazard, planning, engineering, geological, geotechnical, or regulatory assessment.";
   const AVAILABLE_HAZARD_STATUS = new Set(["available", "verified", "success", "ok"]);
   const HAZARD_STATUS_MESSAGES = {
@@ -89,6 +98,12 @@
     selection: null,
     assessment: null,
     assessmentRunning: false,
+    routingStatus: null,
+    routeRequestRunning: false,
+    routeLayers: new Map(),
+    routeDestinationMarker: null,
+    searchHighlightLayer: null,
+    searchRequestSequence: 0,
     mapNotices: new Set(),
     recent: []
   };
@@ -107,11 +122,19 @@
       "history-list", "map", "map-loading", "map-notice",
       "fit-basey", "clear-selection", "map-data-state",
       "results-empty", "results-loading", "results-content",
+      "results-empty-title", "results-empty-copy", "results-empty-steps", "empty-primary-action",
       "assessment-status", "result-actions", "preview-report",
       "download-report", "report-dialog", "close-report",
       "report-preview", "print-preview", "download-report-dialog",
       "toast-region", "use-location", "reset-map", "open-controls",
-      "close-controls", "controls-backdrop", "mobile-assess", "start-new-assessment"
+      "close-controls", "controls-backdrop", "mobile-assess", "start-new-assessment",
+      "mobile-view-switcher", "mobile-view-map", "mobile-view-score",
+      "mobile-selection-summary", "mobile-selection-name", "mobile-selection-badge",
+      "mobile-hazard-summary", "mobile-selection-details",
+      "routing-panel", "routing-badge", "routing-status", "routing-controls",
+      "find-evacuation-route", "map-evacuation-route", "routing-result", "route-layer-controls",
+      "toggle-evacuation-route", "clear-route", "map-route-summary",
+      "map-route-destination", "map-route-distance", "map-route-clear"
     ].forEach((id) => {
       els[id] = document.getElementById(id);
     });
@@ -298,8 +321,16 @@
       const response = await fetch(url, { ...options, headers, signal: controller.signal });
       setApiStatus("online", "Data service available");
       if (!response.ok) {
-        const error = new Error(`Request failed (${response.status})`);
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch {
+          payload = null;
+        }
+        const error = new Error(payload?.error?.message || `Request failed (${response.status})`);
         error.status = response.status;
+        error.code = payload?.error?.code;
+        error.details = payload?.error?.details;
         throw error;
       }
       if (response.status === 204) return null;
@@ -362,7 +393,9 @@
     [
       ["municipalBoundaryPane", 410],
       ["barangayBoundaryPane", 420],
-      ["hazardOverlayPane", 430]
+      ["hazardOverlayPane", 430],
+      ["searchResultPane", 435],
+      ["routePane", 470]
     ].forEach(([name, zIndex]) => {
       state.map.createPane(name);
       state.map.getPane(name).style.zIndex = String(zIndex);
@@ -579,6 +612,7 @@
       dataset.layerName,
       dataset.layer_name
     ].filter((item) => item !== undefined && item !== null).join(" ").toLowerCase();
+    if (value.includes("landslide") || value.includes("rain_induced")) return "rain_induced_landslide";
     if (value.includes("liqu")) return "liquefaction";
     if (value.includes("shak") || value.includes("ground_motion")) return "ground_shaking";
     if (value.includes("flood")) return "flood";
@@ -656,8 +690,12 @@
   function serviceDisplayUrl(service) {
     const key = serviceKey(service);
     const isRequiredHazard = REQUIRED_HAZARDS.some((definition) => definition.key === key);
-    const isHazardDataset = textValue(service.dataset_type, "hazard").trim().toLowerCase() === "hazard";
-    if (normalizeBoolean(service.configured) !== true || !isHazardDataset || !isRequiredHazard) return null;
+    const isMapOverlay = MAP_HAZARDS.some((definition) => definition.key === key && definition.viewOnly);
+    const datasetKind = textValue(service.dataset_type, "hazard").trim().toLowerCase();
+    const isHazardDataset = datasetKind === "hazard" || datasetKind === "hazard_overlay";
+    if (normalizeBoolean(service.configured) !== true || !isHazardDataset) return null;
+    if (isMapOverlay) return serviceLayerUrl(service);
+    if (!isRequiredHazard) return null;
     return `/hazard-layers/${encodeURIComponent(key)}/features`;
   }
 
@@ -875,7 +913,7 @@
   }
 
   function renderHazardControls() {
-    const rows = REQUIRED_HAZARDS.map((definition) => {
+    const rows = MAP_HAZARDS.map((definition) => {
       const index = state.ulapServices.findIndex((service) => datasetType(service) === definition.key);
       const service = index >= 0 ? state.ulapServices[index] : null;
       const status = service ? serviceStatus(service) : "unavailable";
@@ -898,22 +936,26 @@
             <span>
               <i class="swatch ${escapeHtml(definition.key)}"></i>
               <span>${escapeHtml(label)}
-                <em class="layer-status is-${escapeHtml(statusKind(status))}">${escapeHtml(statusLabel(status))}</em>
+                <em class="layer-status is-${escapeHtml(statusKind(status))}">${escapeHtml(statusLabel(status))}${definition.viewOnly ? " · View only" : ""}</em>
               </span>
             </span>
             <input type="checkbox" data-service-index="${index}" ${canDisplay ? "" : "disabled"}
               aria-label="${canDisplay ? "Show" : "No verified display endpoint for"} ${escapeHtml(definition.label)} layer">
           </label>
-          <div class="layer-service-meta">
-            <span>${escapeHtml(snapshotMeta || (layerId !== undefined && layerId !== null ? `Layer ${layerId}` : "Layer not verified"))}</span>
-            <span>${escapeHtml(attribution)}</span>
-            ${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Source URL</a>` : ""}
-            ${!canDisplay ? `<span>${displayUrl ? "Overlay disabled until service verification succeeds" : "Point query only"}</span>` : ""}
-          </div>
-          ${canDisplay ? `<label class="layer-opacity">Opacity
-            <input type="range" min="15" max="85" value="42" data-layer-opacity-index="${index}" aria-label="${escapeHtml(definition.label)} layer opacity">
-            <output>42%</output>
-          </label>` : ""}
+          <details class="layer-service-details">
+            <summary>Layer details</summary>
+            <div class="layer-service-meta">
+              <span>${escapeHtml(snapshotMeta || (layerId !== undefined && layerId !== null ? `Layer ${layerId}` : "Layer not verified"))}</span>
+              <span>${escapeHtml(attribution)}</span>
+              ${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">View source information</a>` : ""}
+              ${definition.viewOnly ? "<span>Optional map context · not used in scoring</span>" : ""}
+              ${!canDisplay ? `<span>${displayUrl ? "Overlay disabled until service verification succeeds" : "Point query only"}</span>` : ""}
+            </div>
+            ${canDisplay ? `<label class="layer-opacity">Opacity
+              <input type="range" min="15" max="85" value="${definition.viewOnly ? 58 : 42}" data-layer-opacity-index="${index}" aria-label="${escapeHtml(definition.label)} layer opacity">
+              <output>${definition.viewOnly ? 58 : 42}%</output>
+            </label>` : ""}
+          </details>
         </div>`;
     });
     els["hazard-layer-controls"].innerHTML = rows.join("");
@@ -921,6 +963,14 @@
 
   function hazardColor(type, classification, normalizedValue) {
     const rankText = textValue(classification, "").toLowerCase();
+    if (type === "rain_induced_landslide") {
+      if (rankText.includes("debris")) return "#111111";
+      if (rankText.includes("very high")) return "#902400";
+      if (rankText.includes("high")) return "#f00000";
+      if (rankText.includes("moderate")) return "#008000";
+      if (rankText.includes("low")) return "#ffff00";
+      return "#8f3d24";
+    }
     const number = toNumber(normalizedValue);
     let rank = number === null ? null : (number > 1 ? number / 100 : number);
     if (rankText.includes("very high") || rankText.includes("severe")) rank = .95;
@@ -1038,7 +1088,7 @@
 
     const layer = L.imageOverlay(source.href, bounds, {
       pane: "hazardOverlayPane",
-      opacity: .42,
+      opacity: datasetType(dataset) === "rain_induced_landslide" ? .58 : .42,
       interactive: true,
       alt: `${textValue(dataset.display_name || dataset.name, "Flood")} official hazard overlay`
     });
@@ -1088,14 +1138,24 @@
       let geoJson = null;
       let layer = null;
       let displayMode = "features";
-      try {
-        const payload = await apiFetch(displayUrl, { timeout: 30000 });
-        geoJson = parseGeoJson(payload);
-        if (!geoJson?.features?.length) throw new Error("No mapped features were returned");
-      } catch (error) {
-        if (type !== "flood") throw error;
+      const renderMode = textValue(firstDefined(
+        dataset.map_render_mode,
+        dataset.mapRenderMode,
+        dataset.metadata?.verification?.map_render_mode
+      ), "features").trim().toLowerCase();
+      if (renderMode === "arcgis_export") {
         layer = await arcGisExportOverlay(dataset);
         displayMode = "arcgis_export";
+      } else {
+        try {
+          const payload = await apiFetch(displayUrl, { timeout: 30000 });
+          geoJson = parseGeoJson(payload);
+          if (!geoJson?.features?.length) throw new Error("No mapped features were returned");
+        } catch (error) {
+          if (type !== "flood") throw error;
+          layer = await arcGisExportOverlay(dataset);
+          displayMode = "arcgis_export";
+        }
       }
       if (!layer) {
         layer = L.geoJSON(geoJson, {
@@ -1395,6 +1455,7 @@
   function resetResultView() {
     state.assessment = null;
     state.assessmentRunning = false;
+    document.body.classList.remove("has-assessment", "assessment-running");
     els["results-empty"].hidden = false;
     els["results-loading"].hidden = true;
     els["results-content"].hidden = true;
@@ -1404,13 +1465,118 @@
     const runLabel = els["run-assessment"]?.querySelector("span");
     if (runLabel) runLabel.textContent = "Calculate score";
     syncMobileAssessmentAction();
+    syncSelectionExperience();
   }
 
   function syncMobileAssessmentAction() {
     const button = els["mobile-assess"];
-    if (!button) return;
-    button.hidden = Boolean(state.assessment || state.assessmentRunning);
-    button.disabled = state.selection?.inside !== true || state.assessmentRunning;
+    const canScore = state.selection?.inside === true && !state.assessment && !state.assessmentRunning;
+    if (button) {
+      button.hidden = !canScore;
+      button.disabled = !canScore;
+    }
+    if (els["mobile-view-switcher"]) {
+      els["mobile-view-switcher"].hidden = !state.assessment;
+    }
+  }
+
+  function showMobileWorkspaceView(view, options = {}) {
+    const target = view === "map" ? document.getElementById("map-stage") : document.getElementById("results-panel");
+    els["mobile-view-map"]?.setAttribute("aria-current", String(view === "map"));
+    els["mobile-view-score"]?.setAttribute("aria-current", String(view === "score"));
+    if (!target || options.scroll === false) return;
+    target.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      block: "start"
+    });
+  }
+
+  function renderMobileSelectionSummary() {
+    const card = els["mobile-selection-summary"];
+    const selection = state.selection;
+    if (!card) return;
+    if (!selection || state.assessment || !els["map-route-summary"]?.hidden) {
+      card.hidden = true;
+      return;
+    }
+    card.hidden = false;
+    const barangay = selection.barangay?.name || selection.label || "Selected point";
+    els["mobile-selection-name"].textContent = selection.checking ? "Checking location…" : barangay;
+    const badge = els["mobile-selection-badge"];
+    if (selection.checking) {
+      badge.className = "badge neutral";
+      badge.textContent = "Checking";
+    } else if (selection.inside === true) {
+      badge.className = "badge success";
+      badge.textContent = "Inside Basey";
+    } else if (selection.inside === false) {
+      badge.className = "badge danger";
+      badge.textContent = "Outside Basey";
+    } else {
+      badge.className = "badge warning";
+      badge.textContent = "Unconfirmed";
+    }
+
+    if (selection.checking) {
+      els["mobile-hazard-summary"].innerHTML = "<span>Confirming the selected point…</span>";
+    } else if (selection.inside !== true) {
+      els["mobile-hazard-summary"].innerHTML = `<span>${selection.inside === false
+        ? "Choose a point inside Basey to continue."
+        : "The municipal boundary could not be confirmed."}</span>`;
+    } else if (!state.liveHazardResponse) {
+      els["mobile-hazard-summary"].innerHTML = "<span>Checking mapped hazards…</span>";
+    } else {
+      els["mobile-hazard-summary"].innerHTML = pointHazards().map((hazard) => `
+        <span class="mobile-hazard-item ${hazard.available ? "is-available" : "is-missing"}">
+          <b>${escapeHtml(hazard.label)}</b>
+          <em>${escapeHtml(hazard.available
+            ? hazardClassificationPresentation(hazard).pointLabel
+            : statusLabel(hazard.status))}</em>
+        </span>`).join("");
+    }
+  }
+
+  function syncSelectionExperience() {
+    const selection = state.selection;
+    document.body.classList.toggle("has-selection", Boolean(selection));
+    renderMobileSelectionSummary();
+    if (!els["results-empty-title"] || state.assessment || state.assessmentRunning) return;
+    const action = els["empty-primary-action"];
+    action.hidden = true;
+    action.dataset.action = "";
+    els["results-empty-steps"].hidden = false;
+
+    if (!selection) {
+      els["results-empty-title"].textContent = "Select a Basey location to begin";
+      els["results-empty-copy"].textContent = "Choose a point to view its mapped hazard conditions and calculate a combined screening score.";
+      return;
+    }
+    if (selection.checking) {
+      els["results-empty-title"].textContent = "Checking the selected location";
+      els["results-empty-copy"].textContent = "Confirming that the point is inside Basey before loading mapped hazard conditions.";
+      els["results-empty-steps"].hidden = true;
+      return;
+    }
+    if (selection.inside === true) {
+      const barangay = selection.barangay?.name || selection.label || "this location";
+      els["results-empty-title"].textContent = "Location ready for scoring";
+      els["results-empty-copy"].textContent = `Review the mapped conditions for ${barangay}, then calculate the combined screening score.`;
+      els["results-empty-steps"].hidden = true;
+      action.hidden = false;
+      action.dataset.action = "score";
+      action.textContent = "Calculate score";
+      return;
+    }
+    els["results-empty-title"].textContent = selection.inside === false
+      ? "Choose a point inside Basey"
+      : "Location could not be confirmed";
+    els["results-empty-copy"].textContent = selection.inside === false
+      ? "This point is outside the supported municipal area. Return to the Basey map and choose another location."
+      : "The boundary check did not confirm this point. Try another location before calculating a score.";
+    els["results-empty-steps"].hidden = true;
+    action.hidden = false;
+    action.dataset.action = "return";
+    action.textContent = "Return to Basey";
   }
 
   async function selectLocation(latitude, longitude, source = "selection", label = "") {
@@ -1421,6 +1587,7 @@
       return;
     }
 
+    clearRouteLayers();
     resetResultView();
     state.liveRequestSequence += 1;
     state.liveHazardResponse = null;
@@ -1428,6 +1595,7 @@
     state.liveHazardCoordinates = null;
     renderPointHazardStatus();
     state.selection = { latitude: lat, longitude: lng, source, label, checking: true };
+    syncSelectionExperience();
     syncMobileAssessmentAction();
     els.latitude.value = lat.toFixed(6);
     els.longitude.value = lng.toFixed(6);
@@ -1490,7 +1658,7 @@
     const barangay = selection.barangay?.name || "Not identified";
     let notice = "";
     if (selection.inside === false) {
-      notice = `<div class="quality-banner danger"><span class="quality-icon"></span><div><strong>Outside the supported area</strong><p>This version of Basafe currently supports locations within Basey, Samar.</p></div></div>`;
+      notice = `<div class="quality-banner danger"><span class="quality-icon"></span><div><strong>Outside the supported area</strong><p>This version of Basafe currently supports locations within Basey, Samar.</p><button class="text-button" type="button" data-return-basey>Return to the Basey map</button></div></div>`;
     } else if (selection.inside === null) {
       notice = `<div class="quality-banner"><span class="quality-icon"></span><div><strong>Boundary check unavailable</strong><p>Scoring is disabled until Basey coverage can be confirmed.</p></div></div>`;
     } else if (!selection.barangay) {
@@ -1517,9 +1685,12 @@
         `${escapeHtml(formatCoordinate(selection.latitude))}, ${escapeHtml(formatCoordinate(selection.longitude))}`
       ).openPopup();
     }
+    syncSelectionExperience();
+    syncRoutingControls();
   }
 
   function clearSelection() {
+    clearRouteLayers();
     state.selection = null;
     state.liveRequestSequence += 1;
     state.liveHazardResponse = null;
@@ -1537,6 +1708,34 @@
     els["clear-selection"].disabled = true;
     renderPointHazardStatus();
     resetResultView();
+    syncRoutingControls();
+  }
+
+  function clearSearchHighlight() {
+    if (state.searchHighlightLayer && state.map) state.map.removeLayer(state.searchHighlightLayer);
+    state.searchHighlightLayer = null;
+  }
+
+  function highlightSearchResult(result) {
+    clearSearchHighlight();
+    if (!state.map || !window.L || !result.geometry) return false;
+    const collection = parseGeoJson(result.geometry);
+    if (!collection) return false;
+    state.searchHighlightLayer = L.geoJSON(collection, {
+      pane: "searchResultPane",
+      interactive: false,
+      style: {
+        color: "#ffd166", weight: 7, opacity: 1,
+        fillColor: "#ffd166", fillOpacity: .2
+      },
+      pointToLayer: (_feature, latlng) => L.circleMarker(latlng, {
+        pane: "searchResultPane", radius: 9, color: "#fff", weight: 3,
+        fillColor: "#d98300", fillOpacity: 1
+      })
+    }).addTo(state.map);
+    const bounds = state.searchHighlightLayer.getBounds?.();
+    if (bounds?.isValid?.()) state.map.fitBounds(bounds.pad(.2), { maxZoom: 18 });
+    return true;
   }
 
   function extractSearchCoordinates(item) {
@@ -1559,14 +1758,19 @@
   }
 
   async function searchLocation(query) {
+    const requestSequence = ++state.searchRequestSequence;
     els["search-results"].innerHTML = `<p class="search-feedback">Searching…</p>`;
+    els["location-search"].setAttribute("aria-expanded", "true");
     try {
-      const payload = await apiFetch(`/location/search?${new URLSearchParams({ q: query })}`);
+      const payload = await apiFetch(`/location/search?${new URLSearchParams({ q: query, limit: "16" })}`);
+      if (requestSequence !== state.searchRequestSequence) return;
       const results = asArray(payload).map((item) => ({
         item,
         ...extractSearchCoordinates(item),
+        kind: textValue(firstDefined(item.kind, item.type, item.result_type), "place"),
+        geometry: item.geometry || null,
         label: textValue(firstDefined(item.display_name, item.name, item.label, item.address), "Search result"),
-        detail: textValue(firstDefined(item.barangay_name, item.context, item.description), ""),
+        detail: textValue(firstDefined(item.subtitle, item.barangay_name, typeof item.barangay === "string" ? item.barangay : item.barangay?.name, item.context, item.description), ""),
         dataStatus: dataStatus(firstDefined(item.municipal_boundary, item.barangay, item))
       })).filter((item) => item.latitude !== null && item.longitude !== null);
 
@@ -1574,16 +1778,48 @@
         els["search-results"].innerHTML = `<p class="search-feedback">No matching location was returned. Try coordinates or click the map.</p>`;
         return;
       }
-      els["search-results"].innerHTML = results.slice(0, 8).map((result, index) => `
-        <button class="search-result" type="button" data-search-index="${index}">
-          <strong>${escapeHtml(result.label)}</strong>
-          <small>${escapeHtml(result.detail || `${formatCoordinate(result.latitude)}, ${formatCoordinate(result.longitude)}`)} · ${escapeHtml(result.dataStatus)}</small>
-        </button>`).join("");
+      const labels = { street: "Streets", poi: "Places", place: "Places", evacuation_center: "Evacuation centers", barangay: "Barangays", coordinate: "Coordinates" };
+      const groups = new Map();
+      results.forEach((result, index) => {
+        const group = labels[result.kind] || "Places";
+        if (!groups.has(group)) groups.set(group, []);
+        groups.get(group).push({ result, index });
+      });
+      els["search-results"].innerHTML = [...groups.entries()].map(([group, members]) => {
+        const groupId = `search-group-${group.toLowerCase().replaceAll(" ", "-")}`;
+        return `<div class="search-result-group" role="group" aria-labelledby="${escapeHtml(groupId)}">
+          <h3 id="${escapeHtml(groupId)}">${escapeHtml(group)}</h3>
+          ${members.map(({ result, index }) => `
+            <button class="search-result" type="button" role="option" data-search-index="${index}" aria-label="${escapeHtml(result.label)}, ${escapeHtml(group)}">
+              <span class="search-result-type" aria-hidden="true">${escapeHtml(result.kind === "evacuation_center" ? "Center" : result.kind)}</span>
+              <strong>${escapeHtml(result.label)}</strong>
+              <small>${escapeHtml(result.detail || `${formatCoordinate(result.latitude)}, ${formatCoordinate(result.longitude)}`)}</small>
+            </button>`).join("")}
+        </div>`;
+      }).join("");
       els["search-results"]._results = results;
     } catch (error) {
+      if (requestSequence !== state.searchRequestSequence) return;
       els["search-results"].innerHTML = `<p class="search-feedback">Search is unavailable. Enter coordinates or click the map instead.</p>`;
       showToast(`Location search failed: ${error.message}`, "error");
     }
+  }
+
+  function chooseSearchResult(result) {
+    if (!result) return;
+    const highlighted = highlightSearchResult(result);
+    if (result.kind === "street") {
+      if (!highlighted && state.map) state.map.setView([result.latitude, result.longitude], 17);
+      els["search-results"].innerHTML = `
+        <div class="street-selection-guidance" role="status">
+          <strong>${escapeHtml(result.label)}</strong>
+          <span>Street located. Select a specific point along this street to score mapped hazard conditions.</span>
+        </div>`;
+      showToast("Street located. Click a precise point along the highlighted road.");
+      return;
+    }
+    if (highlighted && result.kind === "poi") showToast(`${result.label} located on the map.`);
+    selectLocation(result.latitude, result.longitude, "search", result.label);
   }
 
   function normalizeHazardKey(value) {
@@ -1759,10 +1995,12 @@
   function renderPointHazardStatus(loading = false) {
     if (loading) {
       els["ulap-point-status"].innerHTML = `<div class="point-status-loading"><span class="spinner" aria-hidden="true"></span><span>Reading local hazard classifications…</span></div>`;
+      renderMobileSelectionSummary();
       return;
     }
     if (!state.liveHazardResponse) {
       els["ulap-point-status"].innerHTML = `<p class="muted">Hazard data will be checked after the point is confirmed inside Basey.</p>`;
+      renderMobileSelectionSummary();
       return;
     }
     const hazards = pointHazards();
@@ -1785,6 +2023,7 @@
       ${hazards.some((hazard) => !hazard.available)
         ? `<p class="point-status-warning">The score remains incomplete until all three required sources respond.</p>`
         : ""}`;
+    renderMobileSelectionSummary();
   }
 
   async function loadLiveHazardsAtLocation(latitude, longitude) {
@@ -2467,10 +2706,27 @@
       </section>`;
   }
 
+  function buildInterpretationSummary(facts, hazards) {
+    if (!facts.complete) return "";
+    const available = hazards.filter((hazard) => !hazard.missing && hazard.normalized !== null);
+    if (!available.length) return "";
+    const leading = available.reduce((current, hazard) => {
+      const currentValue = current.normalized * (current.appliedWeight ?? 1);
+      const hazardValue = hazard.normalized * (hazard.appliedWeight ?? 1);
+      return hazardValue > currentValue ? hazard : current;
+    });
+    const classification = hazardClassificationPresentation(leading).label;
+    return `<section class="result-interpretation" aria-label="Plain-language score interpretation">
+      <span>Main mapped condition in this score</span>
+      <strong>${escapeHtml(leading.label)} · ${escapeHtml(classification)}</strong>
+      <p>This is the largest normalized model input for this result. It is not a standalone safety rating or proof that one hazard caused the final score.</p>
+    </section>`;
+  }
+
   function buildHazards(hazards) {
     return `
       <section class="result-section">
-        <h3>Hazard evidence <span class="badge info">Official source → model</span></h3>
+        <h3>Mapped hazard conditions <span class="badge info">Source evidence</span></h3>
         <div class="hazard-grid">
           ${hazards.map((hazard) => {
             const sourceAvailable = hazard.live?.available === true;
@@ -2493,9 +2749,6 @@
                   <strong>${escapeHtml(sourceAvailable
                     ? classification.label
                     : "Unavailable")}</strong>
-                  ${hazard.officialCode !== undefined && hazard.officialCode !== null
-                    ? `<code>${escapeHtml(textValue(hazard.classificationField, "Source code"))}: ${escapeHtml(hazard.officialCode)}</code>`
-                    : ""}
                   ${!sourceAvailable
                     ? `<p>${escapeHtml(statusMessage(hazard.status, hazard.statusDetail))}</p>`
                     : ""}
@@ -2503,21 +2756,23 @@
                     ? `<p class="classification-note">${escapeHtml(classification.note)}</p>`
                     : ""}
                 </div>
-
-                <div class="model-transform-value">
-                  <span class="value-label">Normalized input (0–1)</span>
-                  <strong>${hazard.normalized === null
-                    ? "Not calculated"
-                    : escapeHtml(formatValue(hazard.normalized / 100, 3))}</strong>
-                  <small>Model index ${hazard.normalized === null ? "not calculated" : `${escapeHtml(formatValue(hazard.normalized, 2))} / 100`}; not an official agency numerical rating.</small>
-                </div>
-
-                <p class="hazard-date-note"><strong>Source date:</strong> ${escapeHtml(formatDate(hazard.referenceDate))}${hazard.referenceDate ? "" : " · date not reported by the source record"}</p>
+                <p class="hazard-source-line"><strong>Source:</strong> ${escapeHtml(textValue(hazard.agency, hazard.service || "Not reported"))}</p>
 
                 <details class="hazard-details">
-                  <summary>Source and model details</summary>
+                  <summary>View source and technical details</summary>
+                  <div class="model-transform-value">
+                    <span class="value-label">Basafe normalized input (0–1)</span>
+                    <strong>${hazard.normalized === null
+                      ? "Not calculated"
+                      : escapeHtml(formatValue(hazard.normalized / 100, 3))}</strong>
+                    <small>Model index ${hazard.normalized === null ? "not calculated" : `${escapeHtml(formatValue(hazard.normalized, 2))} / 100`}; not an official agency numerical rating.</small>
+                  </div>
                   <dl class="hazard-provenance">
+                    ${hazard.officialCode !== undefined && hazard.officialCode !== null
+                      ? `<dt>Source code</dt><dd>${escapeHtml(textValue(hazard.classificationField, "Classification"))}: ${escapeHtml(hazard.officialCode)}</dd>`
+                      : ""}
                     <dt>Agency / service</dt><dd>${escapeHtml(textValue(serviceLabel, "Not reported"))}</dd>
+                    <dt>Source date</dt><dd>${escapeHtml(formatDate(hazard.referenceDate))}${hazard.referenceDate ? "" : " · not reported"}</dd>
                     <dt>Retrieved / imported</dt><dd>${escapeHtml(formatDateTime(hazard.retrievedAt))}</dd>
                     <dt>Applied indicator weight</dt><dd>${hazard.appliedWeight === null ? "Not calculated" : escapeHtml(formatValue(hazard.appliedWeight, 3))} · ${escapeHtml(titleCase(hazard.weightingMethod))}</dd>
                     <dt>Spatial reference</dt><dd>${escapeHtml(textValue(hazard.spatialReference))}</dd>
@@ -2682,13 +2937,18 @@
       assessment.result?.recommendations,
       assessment.assessment?.recommendations
     ));
-    const missing = [...new Set([
-      ...facts.missingInputs,
-      ...hazards.filter((hazard) => hazard.missing).map((hazard) => hazard.label)
-    ])];
+    const missingByKey = new Map();
+    [...facts.missingInputs, ...hazards.filter((hazard) => hazard.missing).map((hazard) => hazard.key)].forEach((value) => {
+      const key = normalizeHazardKey(value);
+      const definition = REQUIRED_HAZARDS.find((hazard) => hazard.key === key);
+      const label = definition?.label || titleCase(value);
+      missingByKey.set(key || label.toLowerCase(), label);
+    });
+    const missing = [...missingByKey.values()];
 
     return `
       ${buildScoreCard(facts)}
+      ${buildInterpretationSummary(facts, hazards)}
       ${!facts.complete ? `<div class="quality-banner danger">
         <span class="quality-icon"></span>
         <div><strong>Required information is missing</strong><p>${missing.length
@@ -2704,10 +2964,10 @@
 
       <div class="result-tabs" id="result-tabs">
         <nav class="result-tab-nav" role="tablist" aria-label="Score sections">
-          <button class="result-tab active" role="tab" aria-selected="true"  aria-controls="rtab-hazards"  id="rtab-btn-hazards">Hazards</button>
-          <button class="result-tab"        role="tab" aria-selected="false" aria-controls="rtab-model"    id="rtab-btn-model">Model</button>
-          <button class="result-tab"        role="tab" aria-selected="false" aria-controls="rtab-context"  id="rtab-btn-context">CDRA/CLUP</button>
-          <button class="result-tab"        role="tab" aria-selected="false" aria-controls="rtab-details"  id="rtab-btn-details">Details</button>
+          <button class="result-tab active" role="tab" tabindex="0"  aria-selected="true"  aria-controls="rtab-hazards" id="rtab-btn-hazards">Hazards</button>
+          <button class="result-tab"        role="tab" tabindex="-1" aria-selected="false" aria-controls="rtab-model"   id="rtab-btn-model" aria-label="Why this score">Why</button>
+          <button class="result-tab"        role="tab" tabindex="-1" aria-selected="false" aria-controls="rtab-context" id="rtab-btn-context" aria-label="Local CDRA and CLUP context">Context</button>
+          <button class="result-tab"        role="tab" tabindex="-1" aria-selected="false" aria-controls="rtab-details" id="rtab-btn-details" aria-label="Sources and limitations">Sources</button>
         </nav>
 
         <div class="result-tab-panels">
@@ -2756,6 +3016,8 @@
   function renderAssessment(assessment) {
     state.assessment = assessment;
     state.assessmentRunning = false;
+    document.body.classList.remove("assessment-running");
+    document.body.classList.add("has-assessment");
     const facts = assessmentFacts(assessment);
     els["results-empty"].hidden = true;
     els["results-loading"].hidden = true;
@@ -2770,7 +3032,8 @@
     els["download-report-dialog"].disabled = !facts.id || facts.integrityMismatch;
     saveRecent(assessment);
     renderHistory();
-    document.getElementById("results-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+    renderMobileSelectionSummary();
+    showMobileWorkspaceView("score");
     // Wire tab switching (script tags don't execute when injected via innerHTML)
     wireResultTabs();
   }
@@ -2780,15 +3043,31 @@
     if (!container) return;
     var tabs = container.querySelectorAll(".result-tab");
     var panels = container.querySelectorAll(".result-tab-panel");
-    tabs.forEach(function (tab) {
-      tab.addEventListener("click", function () {
-        var targetId = this.getAttribute("aria-controls");
+    function activateTab(tab, moveFocus) {
+        var targetId = tab.getAttribute("aria-controls");
         tabs.forEach(function (t) { t.classList.remove("active"); t.setAttribute("aria-selected", "false"); });
+        tabs.forEach(function (t) { t.setAttribute("tabindex", "-1"); });
         panels.forEach(function (p) { p.classList.remove("active"); p.hidden = true; });
-        this.classList.add("active");
-        this.setAttribute("aria-selected", "true");
+        tab.classList.add("active");
+        tab.setAttribute("aria-selected", "true");
+        tab.setAttribute("tabindex", "0");
         var panel = document.getElementById(targetId);
         if (panel) { panel.classList.add("active"); panel.hidden = false; }
+        if (moveFocus) tab.focus();
+    }
+    tabs.forEach(function (tab, index) {
+      tab.addEventListener("click", function () {
+        activateTab(this, false);
+      });
+      tab.addEventListener("keydown", function (event) {
+        var nextIndex = null;
+        if (event.key === "ArrowRight") nextIndex = (index + 1) % tabs.length;
+        else if (event.key === "ArrowLeft") nextIndex = (index - 1 + tabs.length) % tabs.length;
+        else if (event.key === "Home") nextIndex = 0;
+        else if (event.key === "End") nextIndex = tabs.length - 1;
+        if (nextIndex === null) return;
+        event.preventDefault();
+        activateTab(tabs[nextIndex], true);
       });
     });
   }
@@ -2800,6 +3079,7 @@
       return;
     }
     state.assessmentRunning = true;
+    document.body.classList.add("assessment-running");
     syncMobileAssessmentAction();
     els["run-assessment"].disabled = true;
     els["results-empty"].hidden = true;
@@ -2888,6 +3168,7 @@
       showToast(`Score could not be generated: ${error.message}`, "error");
     } finally {
       state.assessmentRunning = false;
+      document.body.classList.remove("assessment-running");
       els["run-assessment"].disabled = state.selection?.inside !== true;
       syncMobileAssessmentAction();
     }
@@ -3136,7 +3417,210 @@
     }
   }
 
+  function syncRoutingControls() {
+    const ready = Boolean(state.routingStatus?.routing_available);
+    const selected = state.selection?.inside === true && !state.selection?.checking;
+    const disabled = !ready || !selected || state.routeRequestRunning;
+    const mapRouteButton = els["map-evacuation-route"];
+    if (mapRouteButton) {
+      const hasRoute = state.routeLayers.has("evacuation");
+      mapRouteButton.disabled = !ready || state.routeRequestRunning;
+      mapRouteButton.classList.toggle("is-ready", ready && selected && !hasRoute);
+      mapRouteButton.classList.toggle("has-route", hasRoute);
+      mapRouteButton.setAttribute("aria-pressed", String(hasRoute));
+      mapRouteButton.title = !ready
+        ? "Evacuation routing is unavailable"
+        : selected
+          ? (hasRoute ? "Recalculate evacuation route" : "Find evacuation route")
+          : "Select a location to find an evacuation route";
+    }
+    if (!els["routing-controls"]) return;
+    els["routing-controls"].hidden = !ready;
+    els["find-evacuation-route"].disabled = disabled;
+    if (!ready) return;
+    els["routing-status"].className = "routing-status";
+    els["routing-status"].textContent = selected
+      ? "This point can be checked against the loaded town-proper routing boundary."
+      : "Select a point inside Basey to check whether detailed town-proper routing is available.";
+  }
+
+  async function loadRoutingStatus() {
+    const payload = await optionalFetch("/routing/status");
+    state.routingStatus = payload || {
+      routing_available: false,
+      notices: ["Routing status could not be loaded."]
+    };
+    const ready = Boolean(state.routingStatus.routing_available);
+    els["routing-badge"].className = `badge ${ready ? "success" : "neutral"}`;
+    els["routing-badge"].textContent = ready ? "Available" : "Data required";
+    if (!ready) {
+      const notices = normalizeStringList(state.routingStatus.notices);
+      els["routing-status"].className = "routing-status is-unavailable";
+      els["routing-status"].innerHTML = `
+        <strong>Town-proper routing is not yet available</strong>
+        <p>${escapeHtml(notices[0] || "Verified routing datasets are required.")}</p>
+        <details><summary>Required local data</summary><ul>${notices.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>`;
+    }
+    syncRoutingControls();
+  }
+
+  function clearRouteLayers({ clearResult = true } = {}) {
+    for (const layer of state.routeLayers.values()) {
+      if (state.map?.hasLayer(layer)) state.map.removeLayer(layer);
+    }
+    state.routeLayers.clear();
+    if (state.routeDestinationMarker && state.map?.hasLayer(state.routeDestinationMarker)) {
+      state.map.removeLayer(state.routeDestinationMarker);
+    }
+    state.routeDestinationMarker = null;
+    els["map-evacuation-route"]?.classList.remove("has-route");
+    els["map-evacuation-route"]?.setAttribute("aria-pressed", "false");
+    if (els["route-layer-controls"]) els["route-layer-controls"].hidden = true;
+    if (els["map-route-summary"]) els["map-route-summary"].hidden = true;
+    if (clearResult && els["routing-result"]) {
+      els["routing-result"].hidden = true;
+      els["routing-result"].innerHTML = "";
+    }
+    renderMobileSelectionSummary();
+  }
+
+  function addRouteLayer(key, route) {
+    if (!state.map || !route?.route) return null;
+    const halo = L.geoJSON(route.route, {
+      pane: "routePane",
+      style: {
+        color: "#062b36",
+        weight: 14,
+        opacity: .9,
+        lineCap: "round",
+        lineJoin: "round",
+        interactive: false
+      }
+    });
+    const routeLine = L.geoJSON(route.route, {
+      pane: "routePane",
+      style: {
+        color: "#55f2d3",
+        weight: 8,
+        opacity: 1,
+        lineCap: "round",
+        lineJoin: "round"
+      }
+    });
+    routeLine.bindTooltip("Evacuation route", { sticky: true, className: "route-tooltip" });
+    const layer = L.featureGroup([halo, routeLine]).addTo(state.map);
+    state.routeLayers.set(key, layer);
+    return layer;
+  }
+
+  function routeMetricCell(route, field, suffix = "") {
+    const value = route?.routing?.[field];
+    return value === null || value === undefined ? "Unknown" : `${formatValue(value, 1)}${suffix}`;
+  }
+
+  function renderRouteResult(payload) {
+    clearRouteLayers({ clearResult: false });
+    const selected = payload.routes?.shortest || {
+      destination: payload.destination,
+      routing: payload.routing,
+      route: payload.route
+    };
+    addRouteLayer("evacuation", selected);
+    if (state.map && selected?.destination) {
+      const centerIcon = L.divIcon({
+        className: "route-destination-marker",
+        html: '<span aria-hidden="true">EC</span>',
+        iconSize: [44, 44],
+        iconAnchor: [22, 22]
+      });
+      state.routeDestinationMarker = L.marker(
+        [selected.destination.latitude, selected.destination.longitude],
+        { icon: centerIcon, title: "Designated evacuation center" }
+      ).addTo(state.map).bindPopup(
+        `<strong>${escapeHtml(selected.destination.name)}</strong><br>Designated Evacuation Center`
+      );
+    }
+    const bounds = [];
+    for (const layer of state.routeLayers.values()) {
+      const layerBounds = layer.getBounds?.();
+      if (layerBounds?.isValid()) bounds.push(layerBounds);
+    }
+    if (bounds.length && state.map) {
+      const combined = bounds.reduce((current, item) => current.extend(item), bounds[0]);
+      state.map.fitBounds(combined.pad(.18), { padding: [54, 54], maxZoom: 17 });
+    }
+    const warnings = normalizeStringList(payload.warnings);
+    const distanceLabel = routeMetricCell(selected, "distance_m", " m");
+    const timeLabel = routeMetricCell(selected, "estimated_walk_minutes", " min");
+    els["routing-result"].innerHTML = `
+      <p class="eyebrow">Nearest reachable destination</p>
+      <h3>${escapeHtml(selected.destination.name)}</h3>
+      <p class="route-designation">Designated evacuation center</p>
+      <div class="route-primary-metrics">
+        <div><strong>${distanceLabel}</strong><span>Walking distance</span></div>
+        <div><strong>About ${timeLabel}</strong><span>Estimated time</span></div>
+      </div>
+      <p class="route-mode-label"><i class="route-inline-line" aria-hidden="true"></i> Route highlighted on the map</p>
+      ${warnings.length ? `<details class="route-notices"><summary>Data notice</summary>${warnings.map((item) => `<p class="route-warning">${escapeHtml(item)}</p>`).join("")}</details>` : ""}
+      <details class="route-technical"><summary>Route details</summary>
+        <dl><dt>Algorithm</dt><dd>${escapeHtml(payload.provenance?.algorithm || "astar")}</dd>
+        <dt>Road data</dt><dd>${escapeHtml(payload.provenance?.road_graph_version || "Not reported")}</dd>
+        <dt>Center source</dt><dd>${escapeHtml(selected.destination.source_name || "Basey MDRRMO")}</dd></dl>
+      </details>`;
+    els["routing-result"].hidden = false;
+    els["route-layer-controls"].hidden = state.routeLayers.size === 0;
+    els["toggle-evacuation-route"].checked = state.routeLayers.has("evacuation");
+    els["map-route-destination"].textContent = selected.destination.name;
+    els["map-route-distance"].textContent = `${distanceLabel} · ${timeLabel}`;
+    els["map-route-summary"].hidden = false;
+    renderMobileSelectionSummary();
+  }
+
+  async function requestRoute() {
+    const selection = state.selection;
+    if (!selection || selection.inside !== true) {
+      showToast("Select a location inside Basey before finding an evacuation route.");
+      return;
+    }
+    if (state.routeRequestRunning) return;
+    state.routeRequestRunning = true;
+    syncRoutingControls();
+    els["routing-panel"].open = true;
+    els["routing-result"].hidden = false;
+    els["routing-result"].innerHTML = '<p class="loading-line"><span class="spinner" aria-hidden="true"></span> Finding the nearest reachable designated center…</p>';
+    try {
+      const payload = await apiFetch("/route", {
+        method: "POST",
+        timeout: 20000,
+        body: JSON.stringify({
+          latitude: selection.latitude,
+          longitude: selection.longitude,
+          mode: "shortest",
+          scenario: "multi_hazard",
+          include_comparison: false
+        })
+      });
+      renderRouteResult(payload);
+    } catch (error) {
+      clearRouteLayers({ clearResult: false });
+      const messages = {
+        outside_routing_area: "Detailed evacuation routing is currently limited to the Basey town-proper study area.",
+        routing_graph_missing: "The local pedestrian road graph is not available.",
+        no_evacuation_centers: "No verified designated evacuation centers are loaded.",
+        no_reachable_center: "No designated evacuation center is reachable on the loaded walking graph.",
+        incomplete_hazard_data: "Mapped hazard information is incomplete on the required road segments."
+      };
+      els["routing-result"].innerHTML = `
+        <div class="route-error"><strong>Route unavailable</strong><p>${escapeHtml(messages[error.code] || error.message)}</p></div>`;
+      showToast(messages[error.code] || "The route could not be generated.", "error");
+    } finally {
+      state.routeRequestRunning = false;
+      syncRoutingControls();
+    }
+  }
+
   function bindEvents() {
+    let searchDebounce = null;
     els["search-form"].addEventListener("submit", (event) => {
       event.preventDefault();
       const query = els["location-search"].value.trim();
@@ -3151,7 +3635,47 @@
       const button = event.target.closest("[data-search-index]");
       if (!button) return;
       const result = els["search-results"]._results?.[Number(button.dataset.searchIndex)];
-      if (result) selectLocation(result.latitude, result.longitude, "search", result.label);
+      chooseSearchResult(result);
+    });
+
+    els["location-search"].addEventListener("input", () => {
+      window.clearTimeout(searchDebounce);
+      const query = els["location-search"].value.trim();
+      if (query.length < 2) {
+        state.searchRequestSequence += 1;
+        els["search-results"].innerHTML = "";
+        els["location-search"].setAttribute("aria-expanded", "false");
+        return;
+      }
+      searchDebounce = window.setTimeout(() => searchLocation(query), 300);
+    });
+    els["location-search"].addEventListener("keydown", (event) => {
+      if (event.key === "ArrowDown") {
+        const first = els["search-results"].querySelector("[data-search-index]");
+        if (first) { event.preventDefault(); first.focus(); }
+      } else if (event.key === "Escape") {
+        state.searchRequestSequence += 1;
+        els["search-results"].innerHTML = "";
+        els["location-search"].setAttribute("aria-expanded", "false");
+        clearSearchHighlight();
+      }
+    });
+    els["search-results"].addEventListener("keydown", (event) => {
+      const options = [...els["search-results"].querySelectorAll("[data-search-index]")];
+      const index = options.indexOf(event.target.closest("[data-search-index]"));
+      if (index < 0) return;
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        options[(index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length].focus();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        options[index].click();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        els["search-results"].innerHTML = "";
+        els["location-search"].setAttribute("aria-expanded", "false");
+        els["location-search"].focus();
+      }
     });
 
     els["coordinate-form"].addEventListener("submit", (event) => {
@@ -3162,6 +3686,23 @@
 
     els["run-assessment"].addEventListener("click", runAssessment);
     els["mobile-assess"]?.addEventListener("click", runAssessment);
+    els["mobile-view-map"]?.addEventListener("click", () => showMobileWorkspaceView("map"));
+    els["mobile-view-score"]?.addEventListener("click", () => showMobileWorkspaceView("score"));
+    els["empty-primary-action"]?.addEventListener("click", () => {
+      if (els["empty-primary-action"].dataset.action === "score") runAssessment();
+      else {
+        clearSelection();
+        if (state.map) state.map.fitBounds(BASEY_FALLBACK_BOUNDS);
+        els["location-search"]?.focus();
+      }
+    });
+    els["mobile-selection-details"]?.addEventListener("click", () => setControlsOpen(true));
+    els["selection-summary"]?.addEventListener("click", (event) => {
+      if (!event.target.closest("[data-return-basey]")) return;
+      clearSelection();
+      if (state.map) state.map.fitBounds(BASEY_FALLBACK_BOUNDS);
+      els["location-search"]?.focus();
+    });
     els["clear-selection"].addEventListener("click", clearSelection);
     els["open-controls"]?.addEventListener("click", () => setControlsOpen(true));
     els["close-controls"]?.addEventListener("click", () => setControlsOpen(false));
@@ -3258,6 +3799,17 @@
       }
     });
 
+    els["find-evacuation-route"]?.addEventListener("click", requestRoute);
+    els["map-evacuation-route"]?.addEventListener("click", requestRoute);
+    els["clear-route"]?.addEventListener("click", () => clearRouteLayers());
+    els["map-route-clear"]?.addEventListener("click", () => clearRouteLayers());
+    els["toggle-evacuation-route"]?.addEventListener("change", (event) => {
+      const layer = state.routeLayers.get("evacuation");
+      if (!layer || !state.map) return;
+      if (event.target.checked) layer.addTo(state.map);
+      else state.map.removeLayer(layer);
+    });
+
     els["preview-report"].addEventListener("click", showReportPreview);
     els["close-report"].addEventListener("click", () => els["report-dialog"].close());
     els["report-dialog"].addEventListener("click", (event) => {
@@ -3273,8 +3825,9 @@
     bindEvents();
     syncControlsAccessibility();
     syncMobileAssessmentAction();
+    syncSelectionExperience();
     initMap();
-    await Promise.all([loadSpatialData(), loadHistory()]);
+    await Promise.all([loadSpatialData(), loadHistory(), loadRoutingStatus()]);
     const routeAssessment = location.pathname.match(/^\/assessment\/([A-Za-z0-9_-]{20,128})\/?$/);
     if (routeAssessment) await openHistoryAssessment(routeAssessment[1]);
   }

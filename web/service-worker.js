@@ -1,5 +1,5 @@
-const CACHE_VERSION = "geosafe-shell-v29";
-const INFO_CACHE = "geosafe-info-v29";
+const CACHE_VERSION = "geosafe-shell-v43";
+const INFO_CACHE = "geosafe-info-v43";
 const APP_SHELL = [
   "/",
   "/map",
@@ -9,13 +9,13 @@ const APP_SHELL = [
   "/about",
   "/privacy",
   "/offline",
-  "/site.css?v=0.6.5",
-  "/styles.css?v=0.5.20",
+  "/site.css?v=0.6.7",
+  "/styles.css?v=0.6.7",
   "/landing.js?v=0.6.1",
-  "/app.js?v=0.5.18",
+  "/app.js?v=0.6.10",
   "/methodology.js?v=0.5.13",
   "/info.js?v=0.5.15",
-  "/pwa.js?v=0.6.1",
+  "/pwa.js?v=0.6.2",
   "/manifest.webmanifest",
   "/icons/basafe-logo-256.png",
   "/icons/icon-192.png",

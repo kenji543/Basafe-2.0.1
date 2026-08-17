@@ -13,12 +13,29 @@ workflows.
 
 ## 2. Blocking gaps
 
+### Town-proper evacuation routing data
+
+The routing study area is now derived from the loaded official PSA polygons for
+Mercado, Palaypay, Baybay, Sulod, Loyo, Buscada, and Lawa-an. The grouping was
+defined by the project researcher, so it remains explicitly non-official even
+though its component polygons are official source records. The frozen
+pedestrian graph is present. A photographed inventory acquired directly from
+the Basey MDRRMO was transcribed into 17 coordinate rows that normalize to nine
+in-scope facilities; all nine fall within the study area and the connected road
+graph. The operator-declared MDRRMO extract is enabled for route destinations,
+so standard evacuation-route generation is available. The original photograph and its
+publication date are not yet archived, capacities and activation conditions are
+unknown, and the researcher intentionally excluded unrelated facilities outside
+the study scope. The public workflow uses the nearest reachable designated center
+and does not expose the experimental hazard-aware comparison. See
+[routing.md](routing.md) for the exact provenance and preprocessing contract.
+
 | Gap | Current evidence | Required resolution | Effect until resolved |
 | --- | --- | --- | --- |
 | Flood query capability | On 2026-08-05 the layer advertised `Query`, but the operation returned ArcGIS error 400 | The synchronization client uses the same official service's working `identify` operation and stores the validated result locally; monitor metadata and classifications on every refresh | Runtime is no longer blocked by the rejected query; genuine no-intersection areas remain missing, never Low |
 | Ground-shaking coverage | The public PHIVOLCS ground-shaking feature layer has no Basey point coverage; four official Region VIII 2014 deterministic-scenario KMZ rasters do cover Basey | Replace the derived grid when PHIVOLCS supplies a current, authoritative Basey ground-shaking product; preserve scenario/date/resolution metadata | Current ground shaking is usable only as a `limited` demonstration input |
 | Ground-shaking transformation | `peiscode` I-X maps explicitly to model indices 10-100 | Qualified PHIVOLCS/seismology and model reviewers approve the scenario aggregation, PEIS extraction, source-to-index mapping, and membership implications | The mapping remains a transparent capstone assumption, not an official rating |
-| Fuzzy-model domain validation | Version `0.5.2-demo` mappings, functions, rules, weights, thresholds, and recommendations are capstone assumptions | Documented review and approval by qualified MGB, PHIVOLCS, geotechnical, DRRM, and planning specialists | Results remain demonstration screening only, even when all source values are available |
+| Fuzzy-model domain validation | Version `0.5.5-demo` mappings, functions, rules, weights, thresholds, and recommendations are capstone assumptions | Documented review and approval by qualified MGB, PHIVOLCS, geotechnical, DRRM, and planning specialists | Results remain demonstration screening only, even when all source values are available |
 
 Active Fault, distance to a fault, liquefaction, epicenters, an invented
 intensity, zero, and the last successful result remain explicitly prohibited

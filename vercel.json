@@ -4,8 +4,8 @@
   "name": "geosafe-fis",
   "functions": {
     "api/index.py": {
-      "includeFiles": "{config/**,db/schema.sql,data/geosafe.snapshot.db,geosafe/**}",
-      "excludeFiles": "{.codex-review/**,data/backups/**,data/geosafe.db,docs/**,scripts/**,tests/**,tmp/**}",
+      "includeFiles": "{config/**,db/schema.sql,data/geosafe.snapshot.db,data/routing/**,geosafe/**}",
+      "excludeFiles": "{.codex-review/**,check_coverage.py,check_db_tables.py,data/backups/**,data/crda_*.csv,data/geosafe.db,docs/**,populate_crda.py,populate_historical_incidents.py,scripts/**,tests/**,tmp/**}",
       "maxDuration": 60
     }
   },

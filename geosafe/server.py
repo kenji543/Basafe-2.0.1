@@ -20,6 +20,7 @@ from urllib.parse import parse_qs, urlsplit
 from .api import Api, Response
 from .fuzzy import FuzzyModel
 from .repository import Repository
+from .routing import HazardAwareRouter, RoutingConfig
 from .service import GeoSafeService
 from .ulap.integration import UlapIntegration
 
@@ -149,6 +150,8 @@ class GeoSafeRequestHandler(BaseHTTPRequestHandler):
             and split.path.rstrip("/") in {
                 "/api/assessments",
                 "/api/v1/assessments",
+                "/api/route",
+                "/api/v1/route",
             }
             else "api"
         )
@@ -396,6 +399,17 @@ def create_application(
         or PROJECT_ROOT / "db" / "schema.sql",
     )
     repository.initialize(model)
+    configured_routing = os.environ.get("GEOSAFE_ROUTING_CONFIG")
+    routing_path = Path(configured_routing or PROJECT_ROOT / "config" / "routing.json")
+    if not routing_path.is_absolute():
+        routing_path = PROJECT_ROOT / routing_path
+    routing_config = RoutingConfig.from_file(routing_path, PROJECT_ROOT)
+    if routing_config.fuzzy_model_version != model.version:
+        raise ValueError(
+            "Routing configuration fuzzy_model_version does not match the active "
+            f"model ({routing_config.fuzzy_model_version!r} != {model.version!r})."
+        )
+    router = HazardAwareRouter(repository, routing_config)
     ulap = None
     if enable_ulap:
         configured_registry = os.environ.get("ULAP_SERVICES_CONFIG")
@@ -417,6 +431,7 @@ def create_application(
             runtime_data_mode
             or os.environ.get("GEOSAFE_RUNTIME_DATA_MODE", "snapshot")
         ).strip().casefold(),
+        router=router,
     )
     if ulap is not None and _environment_flag(
         "ULAP_LIVE_VALIDATION", default=False

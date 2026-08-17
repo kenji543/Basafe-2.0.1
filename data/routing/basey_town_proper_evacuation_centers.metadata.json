@@ -1,0 +1,91 @@
+{
+  "source_file": "basey_townpropoer_evacutation_centers.csv",
+  "source_sha256": "7e9a25e779db780452d1c051b788aa0f6b1c866c6e48cacf718d3edd69f7e393",
+  "source_row_count": 17,
+  "normalized_facility_count": 9,
+  "study_area_name": "Basey Town Proper Routing Study Area",
+  "study_area_version": "barangay-composite-v1",
+  "coordinate_reference_system": "EPSG:4326",
+  "classification": "operator_declared_official_source",
+  "source_authority": "Municipal Disaster Risk Reduction and Management Office of Basey (MDRRMO)",
+  "authority_confirmation_basis": "Researcher states the photographed inventory was acquired directly from the MDRRMO office.",
+  "authority_confirmed_on": "2026-08-18",
+  "source_medium": "Photograph transcribed to CSV",
+  "scope_filter": "Only facilities aligned with the seven-barangay town-proper study scope were transcribed; unrelated facilities visible in the source image were intentionally excluded.",
+  "source_image_archived": false,
+  "transformation": "DMS coordinates converted to decimal degrees; repeated facility rows collapsed to one arithmetic-mean representative point.",
+  "quality_notes": [
+    {
+      "id": "BASEY-EC-01",
+      "source_facility": "Basey I Central Elem. School",
+      "normalized_name": "Basey I Central Elementary School",
+      "source_row_count": 9,
+      "max_distance_from_representative_point_m": 63.3,
+      "polygon_barangay": "Loyo (Pob.)"
+    },
+    {
+      "id": "BASEY-EC-02",
+      "source_facility": "St. Michael Parish Church, Brgy. Mercado, BS.",
+      "normalized_name": "St. Michael Parish Church",
+      "source_row_count": 1,
+      "max_distance_from_representative_point_m": 0.0,
+      "polygon_barangay": "Mercado (Pob.)"
+    },
+    {
+      "id": "BASEY-EC-03",
+      "source_facility": "Evacuation Facility, Brgy. Mercado, BS.",
+      "normalized_name": "Evacuation Facility",
+      "source_row_count": 1,
+      "max_distance_from_representative_point_m": 0.0,
+      "polygon_barangay": "Loyo (Pob.)"
+    },
+    {
+      "id": "BASEY-EC-04",
+      "source_facility": "Mun. Gymnasium, Brgy. Mercado",
+      "normalized_name": "Municipal Gymnasium",
+      "source_row_count": 1,
+      "max_distance_from_representative_point_m": 0.0,
+      "polygon_barangay": "Mercado (Pob.)"
+    },
+    {
+      "id": "BASEY-EC-05",
+      "source_facility": "Mun. Town Hall, Brgy. Mercado, BS.",
+      "normalized_name": "Municipal Town Hall",
+      "source_row_count": 1,
+      "max_distance_from_representative_point_m": 0.0,
+      "polygon_barangay": "Mercado (Pob.)"
+    },
+    {
+      "id": "BASEY-EC-06",
+      "source_facility": "BDH, Brgy. Canmanila, BS.",
+      "normalized_name": "Basey District Hospital (BDH)",
+      "source_row_count": 1,
+      "max_distance_from_representative_point_m": 0.0,
+      "polygon_barangay": "Loyo (Pob.)"
+    },
+    {
+      "id": "BASEY-EC-07",
+      "source_facility": "Community Evacuation Center, So. Bangon, Brgy. Canmanila, B.S.",
+      "normalized_name": "Community Evacuation Center (Sitio Bangon)",
+      "source_row_count": 1,
+      "max_distance_from_representative_point_m": 0.0,
+      "polygon_barangay": "Loyo (Pob.)"
+    },
+    {
+      "id": "BASEY-EC-08",
+      "source_facility": "Basey Manpower Training Center, Brgy. Mercado, BS.",
+      "normalized_name": "Basey Manpower Training Center",
+      "source_row_count": 1,
+      "max_distance_from_representative_point_m": 0.0,
+      "polygon_barangay": "Mercado (Pob.)"
+    },
+    {
+      "id": "BASEY-EC-09",
+      "source_facility": "ABC Hall, Brgy. Mercado, B.S.",
+      "normalized_name": "ABC Hall",
+      "source_row_count": 1,
+      "max_distance_from_representative_point_m": 0.0,
+      "polygon_barangay": "Mercado (Pob.)"
+    }
+  ]
+}

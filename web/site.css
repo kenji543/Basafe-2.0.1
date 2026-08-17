@@ -1035,6 +1035,7 @@ summary:focus-visible,
 
 /* Misc utility */
 [hidden] { display: none !important; }
+.mobile-nav-cta { display: none !important; }
 
 /* ----------------------------------------------------------
    20. INFO / DATA-SOURCES PAGE STYLES (preserve existing)
@@ -1068,6 +1069,9 @@ summary:focus-visible,
   border-radius: .55rem; font: inherit; font-weight: 800; cursor: pointer;
 }
 
+.update-actions { display: flex; gap: .35rem; }
+.update-notice .update-later { color: var(--forest-800); background: #fff; border: 1px solid var(--line-strong); }
+
 /* ----------------------------------------------------------
    21. RESPONSIVE
    ---------------------------------------------------------- */
@@ -1082,7 +1086,15 @@ summary:focus-visible,
     box-shadow: var(--shadow);
   }
   .site-nav.is-open { display: flex; }
-  .site-nav a { padding: .75rem; border-radius: .5rem; }
+  .site-nav a { display: flex; min-height: 44px; align-items: center; padding: .75rem; border-radius: .5rem; }
+  .site-nav .mobile-nav-cta {
+    display: flex !important;
+    justify-content: center;
+    margin-top: .35rem;
+    color: #fff;
+    background: var(--teal);
+    box-shadow: 0 8px 20px rgba(9, 80, 75, .2);
+  }
   .header-actions .install-button { display: none !important; }
   .hero   { grid-template-columns: 1fr; min-height: auto; }
   .iso-card { min-height: 440px; }
@@ -1123,6 +1135,11 @@ summary:focus-visible,
   .final-cta-inner { flex-direction: column; align-items: flex-start; }
   .info-main { padding-top: 1rem; }
   .info-hero { padding: 1.6rem; border-radius: 1rem; }
+  .info-card { padding: 1.15rem; }
+  .source-live article { padding: .9rem; }
+  .source-details { grid-template-columns: 1fr; gap: .08rem; }
+  .source-details dt { margin-top: .55rem; font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; }
+  .source-details dd { font-size: .84rem; }
   .update-notice { bottom: calc(.7rem + env(safe-area-inset-bottom)); }
   .update-notice button { min-height: 44px; }
 }

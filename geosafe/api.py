@@ -159,6 +159,10 @@ class Api:
             "/api/layers": "/api/v1/hazard-layers",
             "/api/model/current": "/api/v1/methodology",
             "/api/model/current/methodology": "/api/v1/methodology",
+            "/api/evacuation-centers": "/api/v1/evacuation-centers",
+            "/api/route": "/api/v1/route",
+            "/api/routing/status": "/api/v1/routing/status",
+            "/api/search": "/api/v1/location/search",
         }
         normalized_path = compatibility_aliases.get(normalized_path, normalized_path)
         if normalized_path.startswith("/api/assessments"):
@@ -187,6 +191,40 @@ class Api:
                         "model_version": self.service.model.version,
                         "runtime_data_mode": self.service.runtime_data_mode,
                     }
+                )
+            if method == "GET" and normalized_path == "/api/v1/routing/status":
+                return Response.json(self.service.routing_status())
+            if method == "GET" and normalized_path == "/api/v1/evacuation-centers":
+                return Response.json(self.service.evacuation_centers())
+            if method == "POST" and normalized_path == "/api/v1/route":
+                payload = self._json_body(body)
+                latitude = payload.get("latitude", payload.get("lat"))
+                longitude = payload.get(
+                    "longitude", payload.get("lon", payload.get("lng"))
+                )
+                if latitude is None or longitude is None:
+                    raise ValidationError(
+                        "latitude and longitude are required in the JSON body."
+                    )
+                mode = payload.get("mode", "shortest")
+                scenario = payload.get("scenario", "multi_hazard")
+                compare = payload.get("include_comparison", False)
+                if not isinstance(mode, str) or not isinstance(scenario, str):
+                    raise ValidationError("mode and scenario must be strings.")
+                if not isinstance(compare, bool):
+                    raise ValidationError("include_comparison must be true or false.")
+                if mode != "shortest":
+                    raise ValidationError(
+                        "Only the standard evacuation route is available."
+                    )
+                return Response.json(
+                    self.service.calculate_route(
+                        latitude,
+                        longitude,
+                        mode="shortest",
+                        scenario=scenario,
+                        include_comparison=False,
+                    )
                 )
             if method == "POST" and normalized_path == "/api/location/validate":
                 payload = self._json_body(body)
@@ -256,8 +294,11 @@ class Api:
             if method == "GET" and normalized_path == "/api/v1/location/search":
                 search_query = self._one(query, "q", "") or ""
                 limit = self._int(query, "limit", required=False, default=10)
+                result_type = self._one(query, "type")
                 return Response.json(
-                    self.service.search_locations(search_query, limit=limit)
+                    self.service.search_locations(
+                        search_query, limit=limit, result_type=result_type
+                    )
                 )
             if method == "GET" and normalized_path == "/api/v1/location/identify":
                 latitude = self._coordinate(query, "lat", "latitude")

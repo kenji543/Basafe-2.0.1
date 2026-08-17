@@ -1,0 +1,31 @@
+{
+  "config_version": "1.0.0",
+  "minimum_query_characters": 2,
+  "default_result_limit": 12,
+  "poi_allowlist": {
+    "amenity": [
+      "school",
+      "college",
+      "university",
+      "marketplace",
+      "townhall",
+      "hospital",
+      "clinic",
+      "doctors",
+      "pharmacy",
+      "police",
+      "fire_station",
+      "place_of_worship",
+      "community_centre",
+      "social_facility",
+      "bus_station",
+      "ferry_terminal"
+    ],
+    "office": ["government"],
+    "leisure": ["park", "sports_centre", "playground"],
+    "tourism": ["attraction", "museum", "viewpoint"],
+    "public_transport": ["station", "stop_position", "platform"]
+  },
+  "source_attribution": "© OpenStreetMap contributors",
+  "precision_notice": "Street-level search allows users to locate mapped roads and places more precisely, but it does not increase the spatial resolution or scientific precision of the underlying hazard datasets."
+}

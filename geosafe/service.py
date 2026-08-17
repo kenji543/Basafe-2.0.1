@@ -27,6 +27,8 @@ from .geometry import (
 )
 from .pdf import assessment_report_lines, generate_pdf
 from .repository import Repository
+from .search import normalize_search_text
+from .routing import HazardAwareRouter, RoutingError
 from .ulap.integration import REQUIRED_HAZARDS, UlapIntegration
 
 
@@ -69,6 +71,15 @@ class ValidationError(ServiceError):
     code = "validation_error"
 
 
+class RoutingRequestError(ServiceError):
+    """Expose a routing-specific code without weakening existing API errors."""
+
+    def __init__(self, error: RoutingError):
+        super().__init__(str(error), error.details or None)
+        self.code = error.code
+        self.status_code = error.status_code
+
+
 class GeoSafeService:
     """Coordinates spatial lookup, fuzzy evaluation, persistence, and reports."""
 
@@ -80,6 +91,7 @@ class GeoSafeService:
         *,
         allow_test_fixtures: bool = False,
         runtime_data_mode: str = "live",
+        router: HazardAwareRouter | None = None,
     ):
         if runtime_data_mode not in RUNTIME_DATA_MODES:
             raise ValueError(
@@ -91,6 +103,7 @@ class GeoSafeService:
         self.ulap = ulap
         self.allow_test_fixtures = allow_test_fixtures
         self.runtime_data_mode = runtime_data_mode
+        self.router = router
 
     @property
     def uses_live_runtime_data(self) -> bool:
@@ -323,12 +336,62 @@ class GeoSafeService:
             barangay["id"],
         )
 
+    def _view_only_hazard_overlays(self) -> list[dict[str, Any]]:
+        """Return verified optional map overlays without adding model inputs."""
+        if self.ulap is None:
+            return []
+        overlays: list[dict[str, Any]] = []
+        for item in self.ulap.services()["items"]:
+            verification = item.get("verification") or {}
+            if (
+                item.get("dataset_type") != "hazard"
+                or item.get("required")
+                or not verification.get("view_only")
+            ):
+                continue
+            configured = bool(item.get("configured"))
+            verified = verification.get("status") == "verified"
+            key = item["key"]
+            overlays.append(
+                {
+                    "id": key,
+                    "key": key,
+                    "slug": key,
+                    "name": item.get("name")
+                    or key.replace("_", " ").title(),
+                    "hazard_type": key,
+                    "dataset_type": "hazard_overlay",
+                    "required": False,
+                    "view_only": True,
+                    "source_name": item.get("agency"),
+                    "source_date": verification.get("source_data_date"),
+                    "source_url": item.get("layer_url"),
+                    "layer_url": item.get("layer_url"),
+                    "layer_id": item.get("layer_id"),
+                    "classification_field": item.get("classification_field"),
+                    "expected_domain": item.get("expected_domain")
+                    or item.get("classification_domain")
+                    or {},
+                    "legend_colors": verification.get("legend_colors") or {},
+                    "attribution": item.get("attribution"),
+                    "configured": configured,
+                    "is_official": verified,
+                    "is_demo": False,
+                    "quality_status": "available" if configured and verified else "unavailable",
+                    "data_status": "available" if configured and verified else "unavailable",
+                    "status": "available" if configured and verified else "unavailable",
+                    "map_render_mode": verification.get("map_render_mode", "arcgis_export"),
+                    "metadata": item,
+                }
+            )
+        return overlays
+
     def hazard_layers(self) -> dict[str, Any]:
         if self.uses_live_runtime_data:
             services = self.ulap.services()["items"]
             datasets = []
             for item in services:
-                if item.get("dataset_type") != "hazard":
+                if item.get("dataset_type") != "hazard" or not item.get("required"):
                     continue
                 key = item["key"]
                 datasets.append(
@@ -355,6 +418,7 @@ class GeoSafeService:
                         "metadata": item,
                     }
                 )
+            datasets.extend(self._view_only_hazard_overlays())
             return {
                 "items": datasets,
                 "required_hazard_types": list(REQUIRED_HAZARDS),
@@ -380,6 +444,7 @@ class GeoSafeService:
             }
             for dataset in datasets
         ]
+        rendered_datasets.extend(self._view_only_hazard_overlays())
         return {
             "items": rendered_datasets,
             "required_hazard_types": list(HAZARD_ORDER),
@@ -603,17 +668,28 @@ class GeoSafeService:
             "notices": notices,
         }
 
-    def search_locations(self, query: str, limit: int = 10) -> dict[str, Any]:
+    def search_locations(
+        self,
+        query: str,
+        limit: int = 10,
+        result_type: str | None = None,
+    ) -> dict[str, Any]:
         query = (query or "").strip()
         if len(query) < 2:
             raise ValidationError("Search text must contain at least two characters.")
         if not 1 <= limit <= 50:
             raise ValidationError("limit must be between 1 and 50.")
+        allowed_types = {"street", "poi", "place", "evacuation_center", "barangay", "coordinate"}
+        if result_type is not None and result_type not in allowed_types:
+            raise ValidationError(
+                "type must be street, poi, place, evacuation_center, barangay, or coordinate."
+            )
         results: list[dict[str, Any]] = []
+        wanted = normalize_search_text(query)
         coordinate_match = re.fullmatch(
             r"\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*", query
         )
-        if coordinate_match:
+        if coordinate_match and result_type in {None, "coordinate"}:
             location = self.identify_location(
                 float(coordinate_match.group(1)),
                 float(coordinate_match.group(2)),
@@ -621,73 +697,108 @@ class GeoSafeService:
             results.append(
                 {
                     "kind": "coordinate",
+                    "type": "coordinate",
+                    "name": f"{location['latitude']:.6f}, {location['longitude']:.6f}",
                     "label": f"{location['latitude']:.6f}, {location['longitude']:.6f}",
                     **location,
                 }
             )
-        if self.uses_live_runtime_data:
-            collection = self.ulap.boundary_geojson("barangay_boundary")
-            wanted = query.casefold()
-            for feature in collection.get("features", []):
-                properties = feature.get("properties") or {}
-                name = str(
-                    properties.get("brgy_name")
-                    or properties.get("BARANGAY")
-                    or ""
-                ).strip()
-                if not name or wanted not in name.casefold():
+
+        if result_type in {None, "street", "poi", "place"}:
+            local_type = result_type if result_type in {"street", "poi", "place"} else None
+            local_results = self.repository.search_local_locations(
+                query,
+                result_type=local_type,
+                limit=max(limit, 50),
+            )
+            for item in local_results:
+                item["subtitle"] = item.get("barangay") or "Basey Town Proper"
+                item["is_official"] = False
+                item["is_demo"] = False
+                results.append(item)
+
+        if result_type in {None, "evacuation_center"}:
+            for center in self.repository.evacuation_centers():
+                if not center["is_official"]:
                     continue
-                point = representative_point(feature["geometry"])
+                normalized_name = normalize_search_text(center["name"])
+                if wanted not in normalized_name:
+                    continue
+                rank = 0 if wanted == normalized_name else 1 if normalized_name.startswith(wanted) else 2
                 results.append(
                     {
-                        "kind": "barangay",
-                        "label": f"Barangay {name}, Basey, Samar",
-                        **point,
-                        "barangay": {
-                            "id": None,
-                            "name": name,
-                            "barangay_code": properties.get("brgy_code"),
-                            "psgc_code": properties.get("psgc_10d"),
-                            "municipality": properties.get("city_name", "Basey"),
-                            "province": properties.get("prov_name", "Samar"),
-                            "is_official": True,
-                            "is_demo": False,
-                        },
-                        "is_demo": False,
-                        "is_official": True,
+                        "kind": "evacuation_center",
+                        "type": "evacuation_center",
+                        "id": center["id"],
+                        "name": center["name"],
+                        "label": center["name"],
+                        "subtitle": center.get("barangay") or "Basey Town Proper",
+                        "latitude": center["latitude"],
+                        "longitude": center["longitude"],
+                        "barangay": center.get("barangay"),
+                        "designation": center["designation"],
+                        "source": center["source_name"],
+                        "source_date": center["source_date"],
+                        "is_official": center["is_official"],
+                        "relevance": rank,
                     }
                 )
-            return {
-                "query": query,
-                "items": results[:limit],
-                "scope": "Live PSA ULAP Basey barangays and WGS84 coordinate pairs",
-                "notice": (
-                    "Barangay names and geometries come from the configured live "
-                    "PSA ULAP layer. Search does not use a third-party geocoder."
-                ),
-            }
-        search_candidates = self.repository.search_barangays(
-            query, limit=max(limit, 100)
-        )
-        for barangay in self._prefer_official(search_candidates):
-            point = representative_point(barangay["geometry"])
-            results.append(
-                {
-                    "kind": "barangay",
-                    "label": f"Barangay {barangay['name']}, Basey, Samar",
-                    **point,
-                    "barangay": self._public_barangay(barangay),
-                    "is_demo": barangay["is_demo"],
-                    "is_official": barangay["is_official"],
-                }
-            )
+
+        if self.uses_live_runtime_data:
+            collection = self.ulap.boundary_geojson("barangay_boundary")
+            if result_type in {None, "barangay"}:
+                for feature in collection.get("features", []):
+                    properties = feature.get("properties") or {}
+                    name = str(properties.get("brgy_name") or properties.get("BARANGAY") or "").strip()
+                    normalized_name = normalize_search_text(name)
+                    if not name or wanted not in normalized_name:
+                        continue
+                    point = representative_point(feature["geometry"])
+                    results.append(
+                        {
+                            "kind": "barangay", "type": "barangay", "name": name,
+                            "label": f"Barangay {name}, Basey, Samar", **point,
+                            "geometry": feature["geometry"],
+                            "barangay": {"id": None, "name": name,
+                                "barangay_code": properties.get("brgy_code"),
+                                "psgc_code": properties.get("psgc_10d"),
+                                "municipality": properties.get("city_name", "Basey"),
+                                "province": properties.get("prov_name", "Samar"),
+                                "is_official": True, "is_demo": False},
+                            "is_demo": False, "is_official": True,
+                            "relevance": 0 if wanted == normalized_name else 1 if normalized_name.startswith(wanted) else 2,
+                        }
+                    )
+        elif result_type in {None, "barangay"}:
+            search_candidates = self.repository.search_barangays(query, limit=max(limit, 100))
+            for barangay in self._prefer_official(search_candidates):
+                point = representative_point(barangay["geometry"])
+                normalized_name = normalize_search_text(barangay["name"])
+                results.append(
+                    {
+                        "kind": "barangay", "type": "barangay", "name": barangay["name"],
+                        "label": f"Barangay {barangay['name']}, Basey, Samar", **point,
+                        "geometry": barangay["geometry"],
+                        "barangay": self._public_barangay(barangay),
+                        "is_demo": barangay["is_demo"], "is_official": barangay["is_official"],
+                        "relevance": 0 if wanted == normalized_name else 1 if normalized_name.startswith(wanted) else 2,
+                    }
+                )
+
+        type_order = {"coordinate": 0, "street": 1, "poi": 2, "place": 3, "evacuation_center": 4, "barangay": 5}
+        results.sort(key=lambda item: (
+            int(item.get("relevance", 0)),
+            type_order.get(str(item.get("kind")), 9),
+            str(item.get("name") or item.get("label") or "").casefold(),
+        ))
         return {
             "query": query,
             "items": results[:limit],
-            "scope": "Loaded Basey barangays and WGS84 coordinate pairs only",
+            "scope": "Local OSM streets/places, designated centers, Basey barangays, and WGS84 coordinates",
             "notice": (
-                "This prototype does not send searches to a third-party geocoder. "
-                "Results reflect only the loaded Basey dataset."
+                "Search uses only locally synchronized data and does not call Nominatim "
+                "or Overpass at runtime. Street search improves location discovery, not "
+                "the resolution of the underlying hazard datasets."
             ),
         }
 
@@ -697,6 +808,8 @@ class GeoSafeService:
         latitude: float,
         longitude: float,
         datasets: list[dict[str, Any]],
+        *,
+        allow_live_fallback: bool = True,
     ) -> tuple[dict[str, Any], list[str]]:
         relevant = [
             dataset
@@ -784,7 +897,11 @@ class GeoSafeService:
         }
         if feature is None:
             # --- Hybrid fallback: try live GeoRisk API before giving up ---
-            live = self._live_hazard_fallback(hazard_type, latitude, longitude)
+            live = (
+                self._live_hazard_fallback(hazard_type, latitude, longitude)
+                if allow_live_fallback
+                else None
+            )
             if live is not None:
                 live.pop("source_tag", None)
                 fallback_agency = live.pop("agency", dataset.get("source_name") or "GeoRisk ULAP")
@@ -925,7 +1042,11 @@ class GeoSafeService:
         )
 
     def _runtime_assessment_hazards(
-        self, latitude: float, longitude: float
+        self,
+        latitude: float,
+        longitude: float,
+        *,
+        local_only: bool = False,
     ) -> tuple[list[dict[str, Any]], list[str]]:
         """Resolve model inputs from the configured runtime data source.
 
@@ -933,7 +1054,7 @@ class GeoSafeService:
         dataset therefore remains an explicit missing input instead of making
         an opportunistic ULAP request during an assessment.
         """
-        if self.uses_live_runtime_data:
+        if self.uses_live_runtime_data and not local_only:
             assert self.ulap is not None
             return self.ulap.assessment_hazards(
                 latitude, longitude, self.model
@@ -948,6 +1069,7 @@ class GeoSafeService:
                 latitude,
                 longitude,
                 datasets,
+                allow_live_fallback=not local_only,
             )
             hazards.append(hazard)
             notices.extend(hazard_notices)
@@ -1067,13 +1189,21 @@ class GeoSafeService:
             )
         return recommendations
 
-    def create_assessment(
+    def evaluate_point(
         self,
         latitude: float,
         longitude: float,
         location_label: str | None = None,
         selection_method: str = "coordinates",
+        *,
+        persist: bool = False,
+        local_only: bool = False,
     ) -> dict[str, Any]:
+        """Evaluate one point, optionally persisting a normal user assessment.
+
+        Routing enrichment uses ``persist=False`` so preprocessing cannot fill
+        public assessment history with road-sample records.
+        """
         location = self.identify_location(latitude, longitude)
         if not location["inside_basey"]:
             if location.get("status") not in {
@@ -1093,7 +1223,9 @@ class GeoSafeService:
         location["label"] = location_label
         location["selection_method"] = selection_method
         hazards, lookup_notices = self._runtime_assessment_hazards(
-            location["latitude"], location["longitude"]
+            location["latitude"],
+            location["longitude"],
+            local_only=local_only,
         )
         model_inputs = {
             hazard["hazard_type"]: hazard["normalized_value"]
@@ -1299,8 +1431,107 @@ class GeoSafeService:
                 "format": "PDF",
             },
         }
+        if not persist:
+            return snapshot
         saved = self.repository.save_assessment(snapshot, location_label)
         return self._with_links(saved)
+
+    def create_assessment(
+        self,
+        latitude: float,
+        longitude: float,
+        location_label: str | None = None,
+        selection_method: str = "coordinates",
+    ) -> dict[str, Any]:
+        """Create and persist the existing user-facing assessment record."""
+        return self.evaluate_point(
+            latitude,
+            longitude,
+            location_label,
+            selection_method,
+            persist=True,
+        )
+
+    def routing_status(self) -> dict[str, Any]:
+        if self.router is None:
+            return {
+                "status": "unavailable",
+                "routing_available": False,
+                "scope": "Basey town-proper study area only",
+                "dependencies": {"routing_configuration": False},
+                "notices": ["Routing has not been configured for this deployment."],
+            }
+        return self.router.status()
+
+    def evacuation_centers(self) -> dict[str, Any]:
+        centers = self.repository.evacuation_centers()
+        official_count = sum(1 for center in centers if center["is_official"])
+        reference_count = len(centers) - official_count
+        return {
+            "status": (
+                "available"
+                if official_count
+                else "reference_available"
+                if reference_count
+                else "unavailable"
+            ),
+            "count": len(centers),
+            "official_count": official_count,
+            "reference_count": reference_count,
+            "items": centers,
+            "notice": (
+                "The loaded center inventory is a user-supplied reference. Its "
+                "issuing authority and publication date still need verification, so "
+                "these records are not enabled as operational route destinations."
+                if reference_count and not official_count
+                else None
+                if official_count
+                else "No designated evacuation-center records are loaded."
+            ),
+            "routing": self.routing_status(),
+        }
+
+    def calculate_route(
+        self,
+        latitude: float,
+        longitude: float,
+        *,
+        mode: str = "shortest",
+        scenario: str = "multi_hazard",
+        include_comparison: bool = False,
+    ) -> dict[str, Any]:
+        if self.router is None:
+            raise RoutingRequestError(
+                RoutingError(
+                    "routing_graph_missing",
+                    "Routing has not been configured for this deployment.",
+                    status_code=503,
+                )
+            )
+        location = self.identify_location(latitude, longitude)
+        if not location["inside_basey"]:
+            raise RoutingRequestError(
+                RoutingError(
+                    "outside_basey",
+                    "The selected point is outside the verified Basey municipal boundary.",
+                    details={"location": location},
+                )
+            )
+        try:
+            result = self.router.route(
+                latitude,
+                longitude,
+                mode=mode,
+                scenario=scenario,
+                include_comparison=include_comparison,
+            )
+        except RoutingError as error:
+            raise RoutingRequestError(error) from error
+        result["location"] = {
+            "inside_basey": True,
+            "barangay": location.get("barangay"),
+        }
+        return result
 
     @staticmethod
     def _with_links(snapshot: dict[str, Any]) -> dict[str, Any]:

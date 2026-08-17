@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from .fuzzy import FuzzyModel, ModelConfigurationError
+from .search import normalize_search_text
 
 
 def json_value(value: str | None, fallback: Any) -> Any:
@@ -57,6 +58,7 @@ class Repository:
         with self.connection() as connection:
             connection.executescript(self.schema_path.read_text(encoding="utf-8"))
             self._ensure_assessment_tokens(connection)
+            self._ensure_routing_center_screening_columns(connection)
             connection.execute("PRAGMA journal_mode = WAL")
             connection.commit()
         self.model_id = self._synchronize_model(model)
@@ -82,6 +84,29 @@ class Repository:
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_assessments_public_token "
             "ON assessments(public_token)"
         )
+
+    @staticmethod
+    def _ensure_routing_center_screening_columns(
+        connection: sqlite3.Connection,
+    ) -> None:
+        """Add non-destructive destination-screening fields to older snapshots."""
+        columns = {
+            str(row["name"])
+            for row in connection.execute("PRAGMA table_info(evacuation_centers)")
+        }
+        declarations = {
+            "is_official": "INTEGER NOT NULL DEFAULT 0",
+            "hazard_screening_status": "TEXT",
+            "hazard_score": "REAL",
+            "hazard_category": "TEXT",
+            "hazard_model_version": "TEXT",
+            "hazard_screened_at": "TEXT",
+        }
+        for name, declaration in declarations.items():
+            if name not in columns:
+                connection.execute(
+                    f"ALTER TABLE evacuation_centers ADD COLUMN {name} {declaration}"
+                )
 
     def _synchronize_model(self, model: FuzzyModel) -> int:
         configuration = model.configuration
@@ -268,6 +293,81 @@ class Repository:
             ).fetchall()
         return [self._barangay_row(row) for row in rows]
 
+    def search_local_locations(
+        self,
+        query: str,
+        *,
+        result_type: str | None = None,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        """Search the frozen local OSM index with deterministic text ranking."""
+        normalized = normalize_search_text(query)
+        if not normalized:
+            return []
+        escaped = normalized.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        parameters: list[Any] = [
+            normalized,
+            f"{escaped}%",
+            f"%{escaped}%",
+            normalized,
+            f"{escaped}%",
+            f"%{escaped}%",
+        ]
+        type_clause = ""
+        if result_type:
+            type_clause = "AND result_type = ?"
+            parameters.append(result_type)
+        parameters.append(limit)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT *,
+                    CASE
+                      WHEN normalized_name = ? THEN 0
+                      WHEN normalized_name LIKE ? ESCAPE '\\' THEN 1
+                      WHEN normalized_name LIKE ? ESCAPE '\\' THEN 2
+                      WHEN normalized_alternate_name = ? THEN 3
+                      WHEN normalized_alternate_name LIKE ? ESCAPE '\\' THEN 4
+                      WHEN normalized_alternate_name LIKE ? ESCAPE '\\' THEN 5
+                      ELSE 6
+                    END AS relevance
+                FROM searchable_locations
+                WHERE active = 1
+                  AND (
+                    normalized_name LIKE '%' || ? || '%' ESCAPE '\\'
+                    OR COALESCE(normalized_alternate_name, '') LIKE '%' || ? || '%' ESCAPE '\\'
+                  )
+                  {type_clause}
+                ORDER BY relevance, result_type, name COLLATE NOCASE, id
+                LIMIT ?
+                """,
+                [*parameters[:6], escaped, escaped, *parameters[6:]],
+            ).fetchall()
+        return [
+            {
+                "id": int(row["id"]),
+                "source_id": row["source_id"],
+                "source_type": row["source_type"],
+                "kind": row["result_type"],
+                "type": row["result_type"],
+                "name": row["name"],
+                "label": row["name"],
+                "alternate_name": row["alternate_name"],
+                "barangay": row["barangay"],
+                "latitude": row["latitude"],
+                "longitude": row["longitude"],
+                "geometry": json_value(row["geometry_geojson"], None),
+                "category": row["category"],
+                "subtype": row["subtype"],
+                "source": row["source_name"],
+                "snapshot_date": row["snapshot_date"],
+                "study_area_version": row["study_area_version"],
+                "metadata": json_value(row["metadata_json"], {}),
+                "relevance": int(row["relevance"]),
+            }
+            for row in rows
+        ]
+
     @staticmethod
     def _barangay_row(row: sqlite3.Row) -> dict[str, Any]:
         return {
@@ -414,6 +514,75 @@ class Repository:
             ),
             "created_at": row["created_at"],
         }
+
+    def routing_study_area(self) -> dict[str, Any] | None:
+        """Return the preferred active town-proper routing polygon, if loaded."""
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM routing_study_areas
+                WHERE is_active = 1
+                ORDER BY is_official DESC, created_at DESC, id DESC
+                LIMIT 1
+                """
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": int(row["id"]),
+            "name": row["name"],
+            "version": row["version"],
+            "geometry": json_value(row["geometry_geojson"], {}),
+            "source_name": row["source_name"],
+            "source_date": row["source_date"],
+            "source_metadata": json_value(row["source_metadata_json"], {}),
+            "is_official": bool(row["is_official"]),
+            "is_active": bool(row["is_active"]),
+            "created_at": row["created_at"],
+        }
+
+    def evacuation_centers(self, *, active_only: bool = True) -> list[dict[str, Any]]:
+        """Return designated centers without inferring designation or authority."""
+        where = "WHERE active = 1" if active_only else ""
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM evacuation_centers
+                {where}
+                ORDER BY name COLLATE NOCASE, id
+                """
+            ).fetchall()
+        return [
+            {
+                "id": int(row["id"]),
+                "external_id": row["external_id"],
+                "name": row["name"],
+                "latitude": float(row["latitude"]),
+                "longitude": float(row["longitude"]),
+                "barangay": row["barangay"],
+                "designation": row["designation"],
+                "source_name": row["source_name"],
+                "source_date": row["source_date"],
+                "source_metadata": json_value(row["source_metadata_json"], {}),
+                "dataset_version": row["dataset_version"],
+                "is_official": bool(row["is_official"]),
+                "active": bool(row["active"]),
+                "capacity": row["capacity"],
+                "notes": row["notes"],
+                "destination_mapped_hazard_screening": {
+                    "status": row["hazard_screening_status"] or "not_screened",
+                    "score": row["hazard_score"],
+                    "category": row["hazard_category"],
+                    "model_version": row["hazard_model_version"],
+                    "screened_at": row["hazard_screened_at"],
+                    "notice": (
+                        "Mapped screening is separate from the center's official designation."
+                    ),
+                },
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
 
     def save_assessment(
         self,
