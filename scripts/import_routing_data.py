@@ -128,6 +128,10 @@ def import_centers(args: argparse.Namespace) -> None:
                     int(active_text in {"1", "true", "yes"}),
                     _optional_int(row.get("capacity")),
                     (row.get("notes") or "").strip() or None,
+                    (row.get("photo_url") or "").strip() or None,
+                    (row.get("photo_alt") or "").strip() or None,
+                    (row.get("photo_source") or "").strip() or None,
+                    (row.get("photo_source_url") or "").strip() or None,
                 )
             )
     if not records:
@@ -141,8 +145,9 @@ def import_centers(args: argparse.Namespace) -> None:
             INSERT INTO evacuation_centers (
                 external_id, name, latitude, longitude, barangay, designation,
                 source_name, source_date, source_metadata_json, dataset_version,
-                is_official, active, capacity, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                is_official, active, capacity, notes, photo_url, photo_alt,
+                photo_source, photo_source_url
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             records,
         )

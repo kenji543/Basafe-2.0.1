@@ -302,6 +302,13 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn('apiFetch("/route"', script)
         self.assertIn('optionalFetch("/routing/status")', script)
         self.assertIn('pane: "routePane"', script)
+        self.assertIn("function evacuationCenterPreview", script)
+        self.assertIn("Facility photo not yet supplied", script)
+        self.assertIn('className: "evacuation-center-preview"', script)
+        self.assertIn('className: "evacuation-center-popup"', script)
+        styles = (WEB_ROOT / "styles.css").read_text(encoding="utf-8")
+        self.assertIn(".evacuation-marker-pin", styles)
+        self.assertIn(".evacuation-preview-card", styles)
         routing_text = (page + script).casefold()
         for prohibited in ("safest route", "guaranteed safe route", "safe area"):
             self.assertNotIn(prohibited, routing_text)

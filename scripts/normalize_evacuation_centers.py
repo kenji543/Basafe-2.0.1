@@ -172,6 +172,10 @@ def normalize(source: Path, db_path: Path) -> tuple[list[dict[str, str]], dict[s
                 "active": "true",
                 "capacity": "",
                 "notes": " ".join(note_parts),
+                "photo_url": "",
+                "photo_alt": "",
+                "photo_source": "",
+                "photo_source_url": "",
             }
         )
         quality_notes.append(

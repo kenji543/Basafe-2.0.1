@@ -89,7 +89,7 @@ class Repository:
     def _ensure_routing_center_screening_columns(
         connection: sqlite3.Connection,
     ) -> None:
-        """Add non-destructive destination-screening fields to older snapshots."""
+        """Add non-destructive destination display/screening fields to snapshots."""
         columns = {
             str(row["name"])
             for row in connection.execute("PRAGMA table_info(evacuation_centers)")
@@ -101,6 +101,10 @@ class Repository:
             "hazard_category": "TEXT",
             "hazard_model_version": "TEXT",
             "hazard_screened_at": "TEXT",
+            "photo_url": "TEXT",
+            "photo_alt": "TEXT",
+            "photo_source": "TEXT",
+            "photo_source_url": "TEXT",
         }
         for name, declaration in declarations.items():
             if name not in columns:
@@ -569,6 +573,10 @@ class Repository:
                 "active": bool(row["active"]),
                 "capacity": row["capacity"],
                 "notes": row["notes"],
+                "photo_url": row["photo_url"],
+                "photo_alt": row["photo_alt"],
+                "photo_source": row["photo_source"],
+                "photo_source_url": row["photo_source_url"],
                 "destination_mapped_hazard_screening": {
                     "status": row["hazard_screening_status"] or "not_screened",
                     "score": row["hazard_score"],

@@ -3518,6 +3518,43 @@
     return value === null || value === undefined ? "Unknown" : `${formatValue(value, 1)}${suffix}`;
   }
 
+  function evacuationCenterPreview(destination) {
+    const metadata = destination?.source_metadata && typeof destination.source_metadata === "object"
+      ? destination.source_metadata
+      : {};
+    const photoUrl = safeSourceUrl(firstDefined(destination?.photo_url, metadata.photo_url));
+    const photoSourceUrl = safeSourceUrl(firstDefined(destination?.photo_source_url, metadata.photo_source_url));
+    const name = textValue(destination?.name, "Evacuation center");
+    const barangay = textValue(destination?.barangay, "Barangay not reported");
+    const photoAlt = textValue(
+      firstDefined(destination?.photo_alt, metadata.photo_alt),
+      `Photograph of ${name}`
+    );
+    const photoSource = textValue(
+      firstDefined(destination?.photo_source, metadata.photo_source),
+      "Photo source not reported"
+    );
+    const media = photoUrl
+      ? `<figure class="evacuation-preview-media">
+          <img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(photoAlt)}" loading="lazy" decoding="async">
+          <figcaption>${photoSourceUrl
+            ? `<a href="${escapeHtml(photoSourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(photoSource)}</a>`
+            : escapeHtml(photoSource)}</figcaption>
+        </figure>`
+      : `<div class="evacuation-preview-placeholder" aria-label="Facility photo not yet supplied">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M7 14h9l3-4h10l3 4h9v25H7V14Z"/><circle cx="24" cy="26" r="8"/><path d="m10 36 8-7 6 5 5-4 9 6"/></svg>
+          <span>Facility photo not yet supplied</span>
+        </div>`;
+    return `<article class="evacuation-preview-card">
+      ${media}
+      <div class="evacuation-preview-copy">
+        <span class="evacuation-preview-kicker">Designated Evacuation Center</span>
+        <strong>${escapeHtml(name)}</strong>
+        <small>${escapeHtml(barangay)}</small>
+      </div>
+    </article>`;
+  }
+
   function renderRouteResult(payload) {
     clearRouteLayers({ clearResult: false });
     const selected = payload.routes?.shortest || {
@@ -3529,16 +3566,31 @@
     if (state.map && selected?.destination) {
       const centerIcon = L.divIcon({
         className: "route-destination-marker",
-        html: '<span aria-hidden="true">EC</span>',
-        iconSize: [44, 44],
-        iconAnchor: [22, 22]
+        html: `<span class="evacuation-marker-pin" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="m3 11.5 9-7.5 9 7.5M5.5 10v10h13V10"/><circle cx="9.5" cy="13.5" r="1.25"/><circle cx="14.5" cy="13.5" r="1.25"/><path d="M7.5 19v-1.4c0-1.5.8-2.5 2-2.5s2 1 2 2.5V19m1-1.4c0-1.5.8-2.5 2-2.5s2 1 2 2.5V19"/></svg>
+        </span>`,
+        iconSize: [52, 52],
+        iconAnchor: [26, 49],
+        popupAnchor: [0, -45],
+        tooltipAnchor: [0, -43]
       });
+      const preview = evacuationCenterPreview(selected.destination);
       state.routeDestinationMarker = L.marker(
         [selected.destination.latitude, selected.destination.longitude],
-        { icon: centerIcon, title: "Designated evacuation center" }
-      ).addTo(state.map).bindPopup(
-        `<strong>${escapeHtml(selected.destination.name)}</strong><br>Designated Evacuation Center`
-      );
+        { icon: centerIcon, title: `${selected.destination.name} — designated evacuation center`, keyboard: true }
+      ).addTo(state.map)
+        .bindTooltip(preview, {
+          direction: "top",
+          opacity: 1,
+          className: "evacuation-center-preview"
+        })
+        .bindPopup(preview, {
+          className: "evacuation-center-popup",
+          maxWidth: 300
+        })
+        .on("popupopen", function () {
+          this.closeTooltip();
+        });
     }
     const bounds = [];
     for (const layer of state.routeLayers.values()) {

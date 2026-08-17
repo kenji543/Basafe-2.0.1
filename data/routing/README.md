@@ -41,3 +41,9 @@ boundary definition is accepted for the research study. Use
 `scripts/enrich_route_hazards.py` to attach local BaSafe hazard/FIS evidence to
 the frozen graph before deployment; `--centers-only` screens newly imported
 centers without recalculating all road edges.
+
+Optional facility photographs can be added to the normalized center CSV with
+`photo_url`, `photo_alt`, `photo_source`, and `photo_source_url`. Use a stable,
+permission-cleared HTTPS URL or a root-relative file placed under `web/`.
+Leave these fields blank when a verified photograph is unavailable; the public
+map identifies that absence instead of substituting unrelated imagery.

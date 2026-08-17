@@ -67,6 +67,10 @@ class EvacuationCenterNormalizationTests(unittest.TestCase):
         self.assertEqual(records[0]["id"], "BASEY-EC-01")
         self.assertEqual(records[0]["name"], "Test Center")
         self.assertEqual(records[0]["barangay"], "Test West")
+        self.assertEqual(records[0]["photo_url"], "")
+        self.assertEqual(records[0]["photo_alt"], "")
+        self.assertEqual(records[0]["photo_source"], "")
+        self.assertEqual(records[0]["photo_source_url"], "")
         self.assertEqual(metadata["source_row_count"], 2)
         self.assertEqual(metadata["normalized_facility_count"], 1)
         self.assertEqual(metadata["quality_notes"][0]["source_row_count"], 2)
@@ -92,10 +96,14 @@ class EvacuationCenterApiClassificationTests(unittest.TestCase):
                 INSERT INTO evacuation_centers (
                     external_id, name, latitude, longitude, designation,
                     source_name, source_metadata_json, dataset_version,
-                    is_official, active
+                    is_official, active, photo_url, photo_alt,
+                    photo_source, photo_source_url
                 ) VALUES ('REF-1', 'Reference Center', 11.28, 125.07,
                           'Existing in supplied inventory', 'User-supplied CSV',
-                          '{}', 'reference-v1', 0, 1)
+                          '{}', 'reference-v1', 0, 1,
+                          'https://example.org/reference-center.jpg',
+                          'Front of Reference Center', 'Basey MDRRMO',
+                          'https://example.org/reference-center')
                 """
             )
             connection.commit()
@@ -105,6 +113,13 @@ class EvacuationCenterApiClassificationTests(unittest.TestCase):
         self.assertEqual(payload["official_count"], 0)
         self.assertEqual(payload["reference_count"], 1)
         self.assertIn("not enabled", payload["notice"])
+        center = payload["items"][0]
+        self.assertEqual(center["photo_url"], "https://example.org/reference-center.jpg")
+        self.assertEqual(center["photo_alt"], "Front of Reference Center")
+        self.assertEqual(center["photo_source"], "Basey MDRRMO")
+        self.assertEqual(
+            center["photo_source_url"], "https://example.org/reference-center"
+        )
 
 
 if __name__ == "__main__":
