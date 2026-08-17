@@ -32,6 +32,15 @@ class IdCollector(HTMLParser):
 
 
 class FrontendContractTests(unittest.TestCase):
+    def test_vercel_bundle_includes_routing_graph(self) -> None:
+        ignore_rules = (PROJECT_ROOT / ".vercelignore").read_text(encoding="utf-8")
+        deployment = json.loads(
+            (PROJECT_ROOT / "vercel.json").read_text(encoding="utf-8")
+        )
+        function_settings = deployment["functions"]["api/index.py"]
+        self.assertIn("!data/routing/**", ignore_rules)
+        self.assertIn("data/routing/**", function_settings["includeFiles"])
+
     def test_only_approved_pages_are_present(self) -> None:
         html_pages = {path.name for path in WEB_ROOT.glob("*.html")}
         self.assertEqual(

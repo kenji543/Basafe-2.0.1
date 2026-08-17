@@ -18,3 +18,5 @@ populate_historical_incidents.py
 # Never upload the writable local database, backups, or source extracts.
 data/*
 !data/geosafe.snapshot.db
+!data/routing/
+!data/routing/**
