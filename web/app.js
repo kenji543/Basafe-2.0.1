@@ -1438,9 +1438,9 @@
   function markerIcon() {
     return L.divIcon({
       className: "",
-      html: `<span class="selected-pin" aria-hidden="true"></span>`,
-      iconSize: [30, 38],
-      iconAnchor: [15, 30]
+      html: `<span class="selected-pin" aria-hidden="true">📍</span>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
     });
   }
 
