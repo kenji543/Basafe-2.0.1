@@ -59,9 +59,24 @@ python scripts/import_dataset.py barangays path/to/file.geojson --db data/geosaf
 python scripts/build_deployment_snapshot.py --force
 
 # Deploy
+
+**Recommended:** Deploy to Render (persistent storage, simpler setup)
+
+```bash
+# Push to GitHub and Render auto-deploys
+git push origin main
+# Or see docs/render-deployment.md for detailed setup
+```
+
+**Legacy Vercel setup** (requires PostgreSQL for persistent storage):
+
+```powershell
 vercel build
 vercel --prod
 ```
+
+See [docs/render-deployment.md](docs/render-deployment.md) for step-by-step Render instructions.
+
 
 Local admin dashboard (isolated dev environment, port 8001 by default):
 
@@ -193,13 +208,20 @@ requires the existing manual `scripts/build_deployment_snapshot.py` +
 gate above; it is a developer tool, not part of the approved public
 interface.
 
-### Vercel deployment
+### Deployment platforms
 
+**Render (recommended):**
+- Persistent storage by default
+- SQLite works out of the box
+- Auto-deploys from GitHub
+- See [docs/render-deployment.md](docs/render-deployment.md)
+
+**Vercel (legacy):**
 `api/index.py` is the WSGI entry point; `vercel.json` maps `/api/*` there and
-static/page routes to files under `web/`. The function copies
-`data/geosafe.snapshot.db` into its writable `/tmp` at cold start — instance
-storage is ephemeral, so anything written at runtime (new assessments) does
-not persist across invocations/regions.
+static/page routes to files under `web/`. Instance storage is ephemeral, so
+anything written at runtime (new assessments, damage reports) does not persist
+unless PostgreSQL is configured. See [docs/postgresql-setup.md](docs/postgresql-setup.md)
+if using Vercel.
 
 ### Testing conventions
 
@@ -214,6 +236,8 @@ and makes real network calls.
 
 ## Key docs
 
+- [docs/render-deployment.md](docs/render-deployment.md) — deploy to Render (recommended for persistent storage)
+- [docs/postgresql-setup.md](docs/postgresql-setup.md) — PostgreSQL setup for Vercel or external database
 - [docs/architecture.md](docs/architecture.md) — scope, workflow, DB schema, API boundaries, fuzzy engine contract
 - [docs/api.md](docs/api.md) — full API contract
 - [docs/routing.md](docs/routing.md) — routing graph/data requirements

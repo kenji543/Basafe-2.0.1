@@ -98,15 +98,14 @@ def app(environ, start_response):
     query_string = environ.get("QUERY_STRING", "")
     query = parse_qs(query_string, keep_blank_values=True)
 
-    # Storage here is an ephemeral per-instance /tmp copy, so a report would
-    # be silently lost; refuse it before reading the (possibly large) body.
-    if path.rstrip("/") == "/api/v1/reports":
+    # Reports are disabled on ephemeral storage, but allowed with persistent PostgreSQL
+    if path.rstrip("/") == "/api/v1/reports" and not os.environ.get("DATABASE_URL"):
         payload = json.dumps(
             {
                 "error": {
                     "code": "report_intake_unavailable",
                     "message": (
-                        "Damage reports can't be received on this site yet. "
+                        "Damage reports can't be received on this deployment yet. "
                         "If anyone is in danger, call 911 or the Basey MDRRMO."
                     ),
                 }

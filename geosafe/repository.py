@@ -1,9 +1,10 @@
-"""SQLite persistence for the focused Basafe workflow."""
+"""Database persistence for the focused Basafe workflow (SQLite or PostgreSQL)."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 import secrets
 import sqlite3
 from collections.abc import Iterable, Mapping
@@ -12,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .db import DatabaseConnection, DatabaseProvider
 from .fuzzy import FuzzyModel, ModelConfigurationError
 from .search import normalize_search_text
 
@@ -34,27 +36,22 @@ class RepositoryError(RuntimeError):
 
 
 class Repository:
-    """Short-lived SQLite connections suitable for a threaded HTTP server."""
+    """Database connections for Basafe (SQLite for local dev, PostgreSQL for production)."""
 
-    def __init__(self, database_path: str | Path, schema_path: str | Path):
-        self.database_path = Path(database_path)
+    def __init__(self, database_path: str | Path | None, schema_path: str | Path):
+        self.database_path = Path(database_path) if database_path else None
         self.schema_path = Path(schema_path)
         self.model_id: int | None = None
+        # Database provider auto-detects based on DATABASE_URL env var
+        self.provider = DatabaseProvider(
+            sqlite_path=self.database_path,
+            postgres_url=os.environ.get("DATABASE_URL"),
+        )
 
     @contextmanager
-    def connection(self) -> Iterable[sqlite3.Connection]:
-        connection = sqlite3.connect(
-            self.database_path,
-            timeout=10,
-            detect_types=sqlite3.PARSE_DECLTYPES,
-        )
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA busy_timeout = 10000")
-        try:
-            yield connection
-        finally:
-            connection.close()
+    def connection(self) -> Iterable[DatabaseConnection]:
+        with self.provider.connection() as conn:
+            yield conn
 
     def initialize(self, model: FuzzyModel) -> None:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
@@ -71,12 +68,21 @@ class Repository:
         self.model_id = self._synchronize_model(model)
 
     @staticmethod
-    def _ensure_assessment_tokens(connection: sqlite3.Connection) -> None:
+    def _ensure_assessment_tokens(connection: DatabaseConnection) -> None:
         """Migrate older prototype databases to private public identifiers."""
-        columns = {
-            str(row["name"])
-            for row in connection.execute("PRAGMA table_info(assessments)")
-        }
+        # SQLite-specific query; PostgreSQL uses information_schema
+        try:
+            columns = {
+                str(row["name"])
+                for row in connection.execute("PRAGMA table_info(assessments)")
+            }
+        except Exception:
+            # PostgreSQL: check if column exists
+            try:
+                connection.execute("SELECT public_token FROM assessments LIMIT 1")
+                columns = {"public_token"}
+            except Exception:
+                columns = {}
         if "public_token" not in columns:
             connection.execute("ALTER TABLE assessments ADD COLUMN public_token TEXT")
         rows = connection.execute(
@@ -94,13 +100,17 @@ class Repository:
 
     @staticmethod
     def _ensure_routing_center_screening_columns(
-        connection: sqlite3.Connection,
+        connection: DatabaseConnection,
     ) -> None:
         """Add non-destructive destination display/screening fields to snapshots."""
-        columns = {
-            str(row["name"])
-            for row in connection.execute("PRAGMA table_info(evacuation_centers)")
-        }
+        try:
+            columns = {
+                str(row["name"])
+                for row in connection.execute("PRAGMA table_info(evacuation_centers)")
+            }
+        except Exception:
+            # PostgreSQL fallback
+            columns = set()
         declarations = {
             "is_official": "INTEGER NOT NULL DEFAULT 0",
             "hazard_screening_status": "TEXT",
@@ -121,13 +131,17 @@ class Repository:
 
     @staticmethod
     def _ensure_evacuation_center_publish_columns(
-        connection: sqlite3.Connection,
+        connection: DatabaseConnection,
     ) -> None:
         """Add admin edit/publish tracking fields to older databases."""
-        columns = {
-            str(row["name"])
-            for row in connection.execute("PRAGMA table_info(evacuation_centers)")
-        }
+        try:
+            columns = {
+                str(row["name"])
+                for row in connection.execute("PRAGMA table_info(evacuation_centers)")
+            }
+        except Exception:
+            # PostgreSQL fallback
+            columns = set()
         for name in ("updated_at", "updated_by", "published_at"):
             if name not in columns:
                 connection.execute(
@@ -136,14 +150,18 @@ class Repository:
 
     @staticmethod
     def _ensure_barangay_designation_columns(
-        connection: sqlite3.Connection,
+        connection: DatabaseConnection,
     ) -> None:
         """Add the admin-managed evacuation-center designation fields to
         older databases' barangays table."""
-        columns = {
-            str(row["name"])
-            for row in connection.execute("PRAGMA table_info(barangays)")
-        }
+        try:
+            columns = {
+                str(row["name"])
+                for row in connection.execute("PRAGMA table_info(barangays)")
+            }
+        except Exception:
+            # PostgreSQL fallback
+            columns = set()
         declarations = {
             "evacuation_center_id": "INTEGER REFERENCES evacuation_centers(id)",
             "evacuation_center_assigned_by": "TEXT",

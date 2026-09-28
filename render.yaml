@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: basafe
+    runtime: python-3.12
+    buildCommand: pip install -e .
+    startCommand: python -m geosafe.server --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: GEOSAFE_PORT
+        value: $PORT
+      - key: GEOSAFE_HOST
+        value: 0.0.0.0
+      - key: GEOSAFE_LOG_LEVEL
+        value: INFO
+      - key: GEOSAFE_ADMIN_ENABLED
+        value: "false"
